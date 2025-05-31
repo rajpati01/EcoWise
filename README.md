@@ -21,7 +21,7 @@ EcoWise is a full-stack web application built with the MERN stack that empowers 
 |-------------|-------------------------------------|
 | Frontend    | React.js, Tailwind CSS, Chart.js    |
 | Backend     | Node.js, Express.js, MongoDB (Atlas)|
-| Authentication | Google OAuth2, JWT (Passport.js)|
+| Authentication | JWT (Passport.js)|
 | AI/ML       | TensorFlow.js (client-side ML)      |
 | Maps        | Google Maps JavaScript API          |
 | Media Upload| Multer                              |
