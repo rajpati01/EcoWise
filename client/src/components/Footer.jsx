@@ -2,9 +2,8 @@ import React from "react";
 
 const Footer = () => {
   return (
-     <div className="flex flex-col min-h-screen">
-    <footer className=" bg-gray-900 text-gray-300 pt-10 pb-4">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="bg-gray-900 text-gray-300 pt-10 pb-4">
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8">
         <div>
           <h2 className="text-2xl font-bold text-white mb-2">EcoWise</h2>
           <p className="text-sm">
@@ -49,8 +48,7 @@ const Footer = () => {
         &copy; 2025 EcoWise. All rights reserved.
       </div>
     </footer>
-    </div>
   );
-}
+};
 
 export default Footer;

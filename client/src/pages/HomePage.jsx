@@ -5,8 +5,6 @@ import Footer from "../components/Footer";
 const HomePage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-green-50 text-gray-800">
-      <Header />
-
        <section className="relative h-[80vh] bg-cover bg-center flex items-center justify-center text-center" style={{ backgroundImage: `url('/your-image.jpg')` }}>
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
       <div className="relative z-10 max-w-4xl px-4 text-white">

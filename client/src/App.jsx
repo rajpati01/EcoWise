@@ -1,19 +1,23 @@
-import './App.css'
-import Header from './components/Header'
-import HomePage from './pages/HomePage'
-import Footer from './components/Footer'
+// App.jsx
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import HomePage from "./pages/HomePage";
+import Blog from "./pages/Blog";
+import About from "./pages/About";
+// ... other imports
 
 function App() {
-
   return (
     <>
-      <div className="flex flex-col min-h-screen">
-      {/* <Header /> */}
-      <HomePage />
-      {/* <Footer /> */}
-      </div>
+      <Header />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/blog" element={<Blog />} />        
+        <Route path="/blogs" element={<Blog />} />
+      </Routes>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
