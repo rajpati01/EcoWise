@@ -4,7 +4,7 @@ import Header from "./components/Header";
 import HomePage from "./pages/HomePage";
 import Blog from "./pages/Blog";
 import About from "./pages/About";
-// ... other imports
+
 
 function App() {
   return (
