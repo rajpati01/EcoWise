@@ -1,12 +1,9 @@
-import './App.css'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import Footer from './components/Footer'
-import Header from './components/Header'
-// import AboutPage from './pages/AboutPage'
-import Home  from './pages/Home'
-// import NotFoundPage from './pages/NotFoundPage'
-// import CampaignsPage from './pages/CampaignsPage'
-// import BlogsPage from './pages/BlogsPage'
+// App.jsx
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import HomePage from "./pages/HomePage";
+import Blog from "./pages/Blog";
+import About from "./pages/About";
 
 
 function App() {
