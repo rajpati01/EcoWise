@@ -1,23 +1,33 @@
-// App.jsx
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Header from "./components/Header";
-import HomePage from "./pages/HomePage";
-import Blog from "./pages/Blog";
-import About from "./pages/About";
+import './App.css'
+import { useState } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import ScrollToTop from './components/ScrollToTop'
+import Footer from './components/Footer'
+import Header from './components/Header'
+import About from './pages/About'
+import Home  from './pages/Home'
+import NotFound from './pages/NotFound'
+import Login from './pages/Login'
+import SignUp from './pages/SignUp'
+import Blogs from './pages/Blogs'
 
 
 function App() {
+
   return (
     <>
-      <Header/>
+      <Header />
+
         <div className="min-h-screen flex flex-col">
           <main className="flex-1">
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Home />} />
-              {/* <Route path="/about" element={<AboutPage />} /> */}
-              {/* <Route path="*" element={<NotFoundPage />} /> */}
-              {/* <Route path="/campaigns" element={<CampaignsPage />} /> */}
-              {/* <Route path="/blogs" element={<BlogsPage />} /> */}
+              <Route path="/about" element={<About />} />
+              <Route path="*" element={<NotFound />} />
+              <Route path="/blogs" element={<Blogs />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
             </Routes>
           </main>
         </div>

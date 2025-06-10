@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Twitter, Facebook, Youtube, Mail, MapPin, Phone } from 'lucide-react';
+import { Leaf, Instagram, Twitter, Facebook, Youtube, Mail, MapPin, Phone } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -10,7 +11,7 @@ const Footer = () => {
           {/* Company Info */}
           <div>
             <div className="flex items-center space-x-2 mb-6">
-              {/* <Leaf className="h-8 w-8 text-primary-500" /> */}
+              <Leaf className="h-8 w-8 text-primary-500" />
               <span className="text-2xl font-display font-bold text-white">EcoWise</span>
             </div>
             <p className="mb-6">
@@ -59,10 +60,16 @@ const Footer = () => {
                 <Link to="/about" className="hover:text-primary-500 transition-colors">About Us</Link>
               </li>
               <li>
+                <Link to="/classify" className="hover:text-primary-500 transition-colors">Waste Classification</Link>
+              </li>
+              <li>
                 <Link to="/campaigns" className="hover:text-primary-500 transition-colors">Campaigns</Link>
               </li>
               <li>
                 <Link to="/blogs" className="hover:text-primary-500 transition-colors">Blog</Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-primary-500 transition-colors">Contact Us</Link>
               </li>
             </ul>
           </div>
