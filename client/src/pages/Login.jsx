@@ -2,17 +2,28 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Leaf } from 'lucide-react';
+import axios from "axios"
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-
-  const handleSubmit = (e) => {
+  
+  
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock login - in real app, this would call your API
-    console.log('Login attempt:', { email, password });
-    navigate('/');
+    // login - this will call backend API
+    try {
+      const res = await axios.post('http://localhost:3001/api/auth/login', { email, password })
+      localStorage.setItem('token', res.data.token)
+      // localStorage.setItem('userId', res.data._id);
+      alert("Login successfull")
+      console.log(res)
+
+      navigate(`/profile/${res.data._id}`)
+    } catch(err){
+      alert(err.response?.data?.message || "Login failed");
+    }
   };
 
   return (
@@ -42,7 +53,7 @@ const LoginPage = () => {
               <input
                 id="email"
                 name="email"
-                type="email"
+                type="email" 
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

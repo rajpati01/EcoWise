@@ -10,6 +10,7 @@ import NotFound from './pages/NotFound'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Blogs from './pages/Blogs'
+import Profile from './pages/Profile'
 
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
               <Route path="/blogs" element={<Blogs />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/profile/:id" element={<Profile />} />
             </Routes>
           </main>
         </div>
