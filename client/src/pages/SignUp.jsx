@@ -2,13 +2,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Leaf } from 'lucide-react';
+import axios from 'axios'
 
 const SignUpPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: "user"
   });
   const navigate = useNavigate();
 
@@ -19,11 +21,21 @@ const SignUpPage = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock signup - in real app, this would call your API
-    console.log('Signup attempt:', formData);
-    navigate('/');
+    if(formData.password !== formData.confirmPassword) {
+      alert("Password do not match")
+      return;
+    }
+    // signup -  this would call  API
+    try {
+      const res = await axios.post('http://localhost:3001/api/auth/register', formData);
+      localStorage.setItem('token', res.data.tokem);
+      alert('Registration successful');
+      navigate('/login')
+    }catch(err) {
+      alert(err.response?.data?.message || "Registration failed");
+    }
   };
 
   return (
