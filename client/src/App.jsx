@@ -1,5 +1,4 @@
 import './App.css'
-import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
 import Footer from './components/Footer'
@@ -10,6 +9,10 @@ import NotFound from './pages/NotFound'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Blogs from './pages/Blogs'
+<<<<<<< HEAD
+=======
+import Leaderboard from './pages/Leaderboard'
+>>>>>>> 4e5ee7470d274e29c497ba5992c748a95c28f399
 import Profile from './pages/Profile'
 
 
@@ -27,6 +30,8 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
               <Route path="/blogs" element={<Blogs />} />
+              <Route path="/Leaderboard" element={<Leaderboard/>} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/profile/:id" element={<Profile />} />
