@@ -11,6 +11,8 @@ import SignUp from './pages/SignUp'
 import Blogs from './pages/Blogs'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
+import Campaigns from './pages/Campaigns'
+
 
 
 function App() {
@@ -32,9 +34,10 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/profile/:id" element={<Profile />} />
+              <Route path="/campaigns" element={<Campaigns />} />
             </Routes>
           </main>
-        </div>
+        </div>  
 
        <Footer />
     </>
