@@ -8,9 +8,9 @@ import Home  from './pages/Home'
 import NotFound from './pages/NotFound'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
-import Blogs from './pages/Blogs'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
+import Blogs from './pages/Blogs'
 import Campaigns from './pages/Campaigns'
 
 
