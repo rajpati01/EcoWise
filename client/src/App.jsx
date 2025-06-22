@@ -14,7 +14,6 @@ import Profile from './pages/Profile'
 import Campaigns from './pages/Campaigns'
 
 
-
 function App() {
 
   return (
@@ -37,11 +36,11 @@ function App() {
               <Route path="/campaigns" element={<Campaigns />} />
             </Routes>
           </main>
-        </div>  
+        </div>
 
        <Footer />
     </>
   )
 }
 
-export default App
+export default App;
