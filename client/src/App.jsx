@@ -9,11 +9,10 @@ import NotFound from './pages/NotFound'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Blogs from './pages/Blogs'
-<<<<<<< HEAD
-=======
 import Leaderboard from './pages/Leaderboard'
->>>>>>> 4e5ee7470d274e29c497ba5992c748a95c28f399
 import Profile from './pages/Profile'
+import Campaigns from './pages/Campaigns'
+
 
 
 function App() {
@@ -35,9 +34,10 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/profile/:id" element={<Profile />} />
+              <Route path="/campaigns" element={<Campaigns />} />
             </Routes>
           </main>
-        </div>
+        </div>  
 
        <Footer />
     </>
