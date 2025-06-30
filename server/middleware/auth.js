@@ -1,14 +1,44 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 // Protect routes - Authentication middleware
 exports.protect = async (req, res, next) => {
   try {
     let token;
 
+    if (!token) {
+      console.log("🚫 No token received");
+      return res.status(401).json({ message: "No token" });
+    }
+
+    //  Add a safe check here to prevent undefined error
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      try {
+        token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = await User.findById(decoded.id).select("-password");
+        next();
+      } catch (err) {
+        console.error("Auth middleware error:", err.message);
+        return res
+          .status(401)
+          .json({ message: "Not authorized, token failed" });
+      }
+    }
+
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
     // Check for token in header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
     }
     // Check for token in cookies
     else if (req.cookies.token) {
@@ -19,21 +49,21 @@ exports.protect = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Not authorized to access this route'
+        message: "Not authorized to access this route",
       });
     }
 
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
+
       // Get user from token
       const user = await User.findById(decoded.userId);
-      
+
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'No user found with this token'
+          message: "No user found with this token",
         });
       }
 
@@ -41,27 +71,25 @@ exports.protect = async (req, res, next) => {
       if (!user.isActive) {
         return res.status(401).json({
           success: false,
-          message: 'User account has been deactivated'
+          message: "User account has been deactivated",
         });
       }
 
       // Add user to request object
       req.user = user;
       next();
-
     } catch (error) {
       return res.status(401).json({
         success: false,
-        message: 'Not authorized to access this route'
+        message: "Not authorized to access this route",
       });
     }
-
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error("Auth middleware error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error in authentication',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error in authentication",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -72,7 +100,7 @@ exports.authorize = (...roles) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `User role '${req.user.role}' is not authorized to access this route`
+        message: `User role '${req.user.role}' is not authorized to access this route`,
       });
     }
     next();
@@ -85,8 +113,11 @@ exports.optionalAuth = async (req, res, next) => {
     let token;
 
     // Check for token in header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
     }
     // Check for token in cookies
     else if (req.cookies.token) {
@@ -97,10 +128,10 @@ exports.optionalAuth = async (req, res, next) => {
       try {
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
+
         // Get user from token
         const user = await User.findById(decoded.userId);
-        
+
         if (user && user.isActive) {
           req.user = user;
         }
@@ -112,7 +143,7 @@ exports.optionalAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Optional auth middleware error:', error);
+    console.error("Optional auth middleware error:", error);
     // For optional auth, continue even if there's an error
     next();
   }
