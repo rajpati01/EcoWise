@@ -13,12 +13,12 @@ const generateToken = (id) => {
 // Send token response
 const sendTokenResponse = (user, statusCode, res, message) => {
   const token = generateToken(user._id);
-  
+
   const options = {
-    expires: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // 7 days
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
   };
 
   // Remove password from output
@@ -26,7 +26,7 @@ const sendTokenResponse = (user, statusCode, res, message) => {
 
   res
     .status(statusCode)
-    .cookie('token', token, options)
+    .cookie("token", token, options)
     .json({
       success: true,
       message,
@@ -45,8 +45,8 @@ const sendTokenResponse = (user, statusCode, res, message) => {
         location: user.location,
         preferences: user.preferences,
         isVerified: user.isVerified,
-        createdAt: user.createdAt
-      }
+        createdAt: user.createdAt,
+      },
     });
 };
 
@@ -88,17 +88,10 @@ exports.register = async (req, res) => {
       password,
       role,
     });
-    res.status(201).json({
-      _id: user._id,
-      name: User.firstName,
-      email: User.email,
-      role: User.role,
-      token: generateToken(user._id),
-    });
 
     // Award welcome bonus points
     await user.addEcoPoints(10);
-    await user.addBadge('Welcome', 'Welcome to EcoWise!');
+    await user.addBadge("Welcome", "Welcome to EcoWise!");
 
     sendTokenResponse(user, 201, res, "User registered successfully");
   } catch (err) {
@@ -106,7 +99,6 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
   console.dir(errors, { depth: null });
-
 };
 
 // @desc    Login user
@@ -129,6 +121,11 @@ exports.login = async (req, res, next) => {
     // Find user and include password for comparison
     const user = await User.findOne({ email }).select("+password");
 
+    // match password
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -140,28 +137,15 @@ exports.login = async (req, res, next) => {
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Account has been deactivated. Please contact support.'
+        message: "Account has been deactivated. Please contact support.",
       });
-    }
-
-    if (user && (await user.matchPassword(password))) {
-      res.status(200).json({
-        _id: user._id,
-        name: user.firstName,
-        email: user.email,
-        role: user.role,
-        tokenL: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    sendTokenResponse(user, 200, res, 'Login successful');
-
+    sendTokenResponse(user, 200, res, "Login successful");
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -171,14 +155,14 @@ exports.login = async (req, res, next) => {
 // @route   POST /api/auth/logout
 // @access  Private
 exports.logout = (req, res) => {
-  res.cookie('token', 'none', {
+  res.cookie("token", "none", {
     expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
+    httpOnly: true,
   });
 
   res.status(200).json({
     success: true,
-    message: 'Logged out successfully'
+    message: "Logged out successfully",
   });
 };
 
@@ -188,11 +172,11 @@ exports.logout = (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -213,15 +197,15 @@ exports.getMe = async (req, res) => {
         preferences: user.preferences,
         isVerified: user.isVerified,
         lastLogin: user.lastLogin,
-        createdAt: user.createdAt
-      }
+        createdAt: user.createdAt,
+      },
     });
   } catch (error) {
-    console.error('Get me error:', error);
+    console.error("Get me error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -235,19 +219,19 @@ exports.updateProfile = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: "Validation failed",
+        errors: errors.array(),
       });
     }
 
     const { firstName, lastName, location, preferences } = req.body;
-    
+
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -261,7 +245,7 @@ exports.updateProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -276,16 +260,15 @@ exports.updateProfile = async (req, res) => {
         location: user.location,
         preferences: user.preferences,
         isVerified: user.isVerified,
-        createdAt: user.createdAt
-      }
+        createdAt: user.createdAt,
+      },
     });
-
   } catch (error) {
-    console.error('Update profile error:', error);
+    console.error("Update profile error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -299,19 +282,19 @@ exports.changePassword = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: "Validation failed",
+        errors: errors.array(),
       });
     }
 
     const { currentPassword, newPassword } = req.body;
-    
-    const user = await User.findById(req.user.id).select('+password');
-    
+
+    const user = await User.findById(req.user.id).select("+password");
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -320,7 +303,7 @@ exports.changePassword = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: 'Current password is incorrect'
+        message: "Current password is incorrect",
       });
     }
 
@@ -330,15 +313,14 @@ exports.changePassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Password changed successfully'
+      message: "Password changed successfully",
     });
-
   } catch (error) {
-    console.error('Change password error:', error);
+    console.error("Change password error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

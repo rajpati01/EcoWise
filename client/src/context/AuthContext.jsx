@@ -1,101 +1,171 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
-// import toast from 'react-hot-toast';
+import React, { createContext, useContext, useReducer, useEffect } from "react";
+import { authService } from "../services/authService";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+const initialState = {
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  error: null,
+};
+
+const authReducer = (state, action) => {
+  // console.log("Dispatching:", action); // See if something spams
+  switch (action.type) {
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
+    case "LOGIN_SUCCESS":
+      return {
+        ...state,
+        user: action.payload,
+        isAuthenticated: true,
+        loading: false,
+        error: null,
+      };
+    case "SET_USER":
+      return {
+        ...state,
+        user: action.payload,
+        isAuthenticated: !!action.payload,
+        loading: false,
+        error: null,
+      };
+    case "SET_ERROR":
+      return {
+        ...state,
+        error: action.payload,
+        loading: false,
+      };
+    case "LOGOUT":
+      return {
+        ...state,
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+        error: null,
+      };
+    case "CLEAR_ERROR":
+      return { ...state, error: null };
+    default:
+      return state;
   }
-  return context;
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Configure axios defaults
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  axios.defaults.baseURL = API_URL;
-
+  // Check if user is logged in on app load
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
+    const checkAuthStatus = async () => {
+      // console.log('Checking auth status...');
+      try {
+        const token = localStorage.getItem("token");
+        if (token) {
+          // console.log("Token found:", token);
+          const user = await authService.getCurrentUser();
+          // console.log("Dispatching:", action.type);
+          dispatch({ type: "SET_USER", payload: user });
+        } else {
+          if (!token && state.loading !== false) {
+            // console.log("Dispatching SET_LOADING");
+            dispatch({ type: "SET_LOADING", payload: false });
+          }
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        localStorage.removeItem("token");
+        // console.log("Dispatching:", action.type);
+        dispatch({ type: "SET_LOADING", payload: false });
+      }
+    };
+
+    checkAuthStatus();
   }, []);
 
-  const fetchUser = async () => {
+  // Login
+  const login = async (credentials) => {
     try {
-      const response = await axios.get('/auth/me');
-      setUser(response.data);
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "CLEAR_ERROR" });
+
+      const response = await authService.login(credentials);
+
+      // Store token
+      localStorage.setItem("token", response.token);
+
+      // Set user in context
+      dispatch({ type: "SET_USER", payload: response.data });
+      // dispatch({ type: "LOGIN_SUCCESS", payload: response });
+
+      return response;
     } catch (error) {
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
-    } finally {
-      setLoading(false);
+      const errorMessage = error.response?.data?.message || "Login failed";
+      dispatch({ type: "SET_ERROR", payload: errorMessage });
+      throw error;
     }
   };
 
-  const login = async (email, password) => {
-    try {
-      const response = await axios.post('/auth/login', { email, password });
-      const { token, user } = response.data;
-      
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-      
-      toast.success('Logged in successfully!');
-      return { success: true };
-    } catch (error) {
-      const message = error.response?.data?.message || 'Login failed';
-      toast.error(message);
-      return { success: false, error: message };
-    }
-  };
-
+  // Register
   const register = async (userData) => {
     try {
-      const response = await axios.post('/auth/register', userData);
-      const { token, user } = response.data;
-      
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-      
-      toast.success('Account created successfully!');
-      return { success: true };
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "CLEAR_ERROR" });
+
+      const response = await authService.register(userData);
+
+      // Store token
+      localStorage.setItem("token", response.token);
+
+      // Set user in context
+      dispatch({ type: "SET_USER", payload: response.user });
+
+      return response;
     } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed';
-      toast.error(message);
-      return { success: false, error: message };
+      const errorMessage =
+        error.response?.data?.message || "Registration failed";
+      dispatch({ type: "SET_ERROR", payload: errorMessage });
+      throw error;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    setUser(null);
-    toast.success('Logged out successfully!');
+  // Logout
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("token");
+      dispatch({ type: "LOGOUT" });
+    }
+  };
+
+  const updateUser = (userData) => {
+    dispatch({ type: "SET_USER", payload: userData });
+  };
+
+  const clearError = () => {
+    dispatch({ type: "CLEAR_ERROR" });
   };
 
   const value = {
-    user,
-    loading,
+    ...state,
     login,
     register,
-    logout
+    logout,
+    updateUser,
+    clearError,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// Hook to use context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };
