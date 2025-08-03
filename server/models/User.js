@@ -100,6 +100,14 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true } 
 });
 
+// Virtual for full name
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+// Index for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ ecoPoints: -1 });
 
 // Hashed password before saving
 userSchema.pre('save', async function (next) {
@@ -117,6 +125,44 @@ userSchema.pre('save', async function (next) {
 // Instance method to check password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Instance method to update eco points and level
+userSchema.methods.addEcoPoints = function(points) {
+  this.ecoPoints += points;
+  
+  // Level calculation (every 100 points = 1 level)
+  this.level = Math.floor(this.ecoPoints / 100) + 1;
+  
+  return this.save();
+};
+
+// Instance method to add badge
+userSchema.methods.addBadge = function(badgeName, description) {
+  const existingBadge = this.badges.find(badge => badge.name === badgeName);
+  
+  if (!existingBadge) {
+    this.badges.push({
+      name: badgeName,
+      description: description
+    });
+    return this.save();
+  }
+  
+  return Promise.resolve(this);
+};
+
+// Static method to find user by email
+userSchema.statics.findByEmail = function(email) {
+  return this.findOne({ email: email.toLowerCase() });
+};
+
+// Static method for leaderboard
+userSchema.statics.getLeaderboard = function(limit = 10) {
+  return this.find({ isActive: true })
+    .sort({ ecoPoints: -1 })
+    .limit(limit)
+    .select('firstName lastName avatar ecoPoints level badges');
 };
 
 module.exports = mongoose.model('User', userSchema);

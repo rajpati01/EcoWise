@@ -13,12 +13,21 @@ const generateToken = (id) => {
 // Send token response
 const sendTokenResponse = (user, statusCode, res, message) => {
   const token = generateToken(user._id);
+<<<<<<< HEAD
   
   const options = {
     expires: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // 7 days
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict'
+=======
+
+  const options = {
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
   };
 
   // Remove password from output
@@ -26,7 +35,11 @@ const sendTokenResponse = (user, statusCode, res, message) => {
 
   res
     .status(statusCode)
+<<<<<<< HEAD
     .cookie('token', token, options)
+=======
+    .cookie("token", token, options)
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
     .json({
       success: true,
       message,
@@ -45,8 +58,13 @@ const sendTokenResponse = (user, statusCode, res, message) => {
         location: user.location,
         preferences: user.preferences,
         isVerified: user.isVerified,
+<<<<<<< HEAD
         createdAt: user.createdAt
       }
+=======
+        createdAt: user.createdAt,
+      },
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
     });
 };
 
@@ -88,6 +106,7 @@ exports.register = async (req, res) => {
       password,
       role,
     });
+<<<<<<< HEAD
     res.status(201).json({
       _id: user._id,
       name: User.firstName,
@@ -99,6 +118,12 @@ exports.register = async (req, res) => {
     // Award welcome bonus points
     await user.addEcoPoints(10);
     await user.addBadge('Welcome', 'Welcome to EcoWise!');
+=======
+
+    // Award welcome bonus points
+    await user.addEcoPoints(10);
+    await user.addBadge("Welcome", "Welcome to EcoWise!");
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
 
     sendTokenResponse(user, 201, res, "User registered successfully");
   } catch (err) {
@@ -106,7 +131,6 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
   console.dir(errors, { depth: null });
-
 };
 
 // @desc    Login user
@@ -129,6 +153,11 @@ exports.login = async (req, res, next) => {
     // Find user and include password for comparison
     const user = await User.findOne({ email }).select("+password");
 
+    // match password
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -140,6 +169,7 @@ exports.login = async (req, res, next) => {
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
+<<<<<<< HEAD
         message: 'Account has been deactivated. Please contact support.'
       });
     }
@@ -151,17 +181,22 @@ exports.login = async (req, res, next) => {
         email: user.email,
         role: user.role,
         tokenL: generateToken(user._id),
+=======
+        message: "Account has been deactivated. Please contact support.",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
-    } else {
-      res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Update last login
     user.lastLogin = new Date();
     await user.save();
 
+<<<<<<< HEAD
     sendTokenResponse(user, 200, res, 'Login successful');
 
+=======
+    sendTokenResponse(user, 200, res, "Login successful");
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -171,14 +206,24 @@ exports.login = async (req, res, next) => {
 // @route   POST /api/auth/logout
 // @access  Private
 exports.logout = (req, res) => {
+<<<<<<< HEAD
   res.cookie('token', 'none', {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true
+=======
+  res.cookie("token", "none", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
   });
 
   res.status(200).json({
     success: true,
+<<<<<<< HEAD
     message: 'Logged out successfully'
+=======
+    message: "Logged out successfully",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
   });
 };
 
@@ -188,11 +233,19 @@ exports.logout = (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
+<<<<<<< HEAD
     
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+=======
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
@@ -213,6 +266,7 @@ exports.getMe = async (req, res) => {
         preferences: user.preferences,
         isVerified: user.isVerified,
         lastLogin: user.lastLogin,
+<<<<<<< HEAD
         createdAt: user.createdAt
       }
     });
@@ -222,6 +276,17 @@ exports.getMe = async (req, res) => {
       success: false,
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+=======
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Get me error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
     });
   }
 };
@@ -235,12 +300,18 @@ exports.updateProfile = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
+<<<<<<< HEAD
         message: 'Validation failed',
         errors: errors.array()
+=======
+        message: "Validation failed",
+        errors: errors.array(),
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
     const { firstName, lastName, location, preferences } = req.body;
+<<<<<<< HEAD
     
     const user = await User.findById(req.user.id);
     
@@ -248,6 +319,15 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+=======
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
@@ -261,7 +341,11 @@ exports.updateProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
+<<<<<<< HEAD
       message: 'Profile updated successfully',
+=======
+      message: "Profile updated successfully",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -276,6 +360,7 @@ exports.updateProfile = async (req, res) => {
         location: user.location,
         preferences: user.preferences,
         isVerified: user.isVerified,
+<<<<<<< HEAD
         createdAt: user.createdAt
       }
     });
@@ -286,6 +371,17 @@ exports.updateProfile = async (req, res) => {
       success: false,
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+=======
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
     });
   }
 };
@@ -299,12 +395,18 @@ exports.changePassword = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
+<<<<<<< HEAD
         message: 'Validation failed',
         errors: errors.array()
+=======
+        message: "Validation failed",
+        errors: errors.array(),
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
     const { currentPassword, newPassword } = req.body;
+<<<<<<< HEAD
     
     const user = await User.findById(req.user.id).select('+password');
     
@@ -312,6 +414,15 @@ exports.changePassword = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+=======
+
+    const user = await User.findById(req.user.id).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
@@ -320,7 +431,11 @@ exports.changePassword = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
+<<<<<<< HEAD
         message: 'Current password is incorrect'
+=======
+        message: "Current password is incorrect",
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
       });
     }
 
@@ -330,6 +445,7 @@ exports.changePassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
+<<<<<<< HEAD
       message: 'Password changed successfully'
     });
 
@@ -342,3 +458,16 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+=======
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+>>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
