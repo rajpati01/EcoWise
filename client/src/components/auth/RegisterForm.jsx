@@ -1,73 +1,126 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import { Leaf, Eye, EyeOff } from "lucide-react";
-import axios from "axios";
 
-const SignUpPage = () => {
-  const [formErrors, setFormErrors] = useState({});
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+const RegisterForm = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    role: "user",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+
+  const {user, register, loading, error, isAuthenticated, clearError } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(`/profile/${user._id}`);
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Clear error when component unmounts
+  useEffect(() => {
+    return () => clearError();
+  }, []);
+
+  const validateForm = () => {
+    const errors = {};
+
+    // First Name Validation
+    if (!formData.firstName?.trim()) {
+      errors.firstName = "First name is required";
+    } else if (formData.firstName.trim().length < 2) {
+      errors.firstName = "First name must be at least 2 characters";
+    }
+
+    // Last Name Validation
+    if (!formData.lastName?.trim()) {
+      errors.lastName = "Last name is required";
+    } else if (formData.lastName.trim().length < 2) {
+      errors.lastName = "Last name must be at least 2 characters";
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email) {
+      errors.email = "Email is required";
+    } else if (!emailRegex.test(formData.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    // Password validation
+    if (!formData.password) {
+      errors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    return errors;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-    // clear error as user types
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    // Clear field-specific error when user starts typing
     if (formErrors[name]) {
-      setFormErrors((prevErrors) => ({
-        ...prevErrors,
+      setFormErrors((prev) => ({
+        ...prev,
         [name]: "",
       }));
+    }
+
+    // Clear general error
+    if (error) {
+      clearError();
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (formData.password !== formData.confirmPassword) {
-      setFormErrors((prev) => ({
-        ...prev,
-        confirmPassword: "Passwords do not match",
-      }));
+    console.log("🚀 Submitting formData:", formData);
+
+    // Validate form
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
-    // signup -  this would call  API
+
     try {
-      console.log("Submitting formData:", formData);
-      const res = await axios.post(
-        "http://localhost:3001/api/auth/register",
-        formData
-      );
-      localStorage.setItem("token", res.data.tokem);
-      alert("Registration successful");
+      const { confirmPassword, ...registrationData } = formData;
+      await register(formData);
       navigate("/login");
+      // Navigation will be handled by useEffect above
     } catch (err) {
-      const errors = err.response?.data?.errors;
-      console.log(errors);
-      console.log(err.response.data);
-      if (errors) {
-        const formattedErrors = {};
-        errors.forEach((error) => {
-          console.log("❗ Error param:", error.path);
-          console.log("❗ Error message:", error.msg);
-          formattedErrors[error.path] = error.msg;
-        });
-        setFormErrors(formattedErrors);
-        console.log("Form validation errors:", formattedErrors);
-      }
-      // alert(err.response?.data?.message || "Registration failed");
+      // Error is handled by the context
+      console.error("Registration failed:", err);
+    }
+  };
+
+  const togglePasswordVisibility = (field) => {
+    if (field === "password") {
+      setShowPassword((prev) => !prev);
+    } else {
+      setShowConfirmPassword((prev) => !prev);
     }
   };
 
@@ -111,7 +164,7 @@ const SignUpPage = () => {
                 value={formData.firstName}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
               />
               {formErrors.firstName && (
                 <p className="text-red-500 text-sm mt-1">
@@ -134,7 +187,7 @@ const SignUpPage = () => {
                 value={formData.lastName}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                placeholder="Enter your full name"
+                placeholder="Enter your last name"
               />
               {formErrors.lastName && (
                 <p className="text-red-500 text-sm mt-1">
@@ -221,13 +274,13 @@ const SignUpPage = () => {
                   {showConfirmPassword ? (
                     <EyeOff
                       size={18}
-                      onClick={() => setShowConfirmPassword(false)}
+                      onClick={togglePasswordVisibility}
                       className="text-gray-500"
                     />
                   ) : (
                     <Eye
                       size={18}
-                      onClick={() => setShowConfirmPassword(true)}
+                      onClick={togglePasswordVisibility}
                       className="text-gray-500"
                     />
                   )}
@@ -278,4 +331,4 @@ const SignUpPage = () => {
   );
 };
 
-export default SignUpPage;
+export default RegisterForm;
