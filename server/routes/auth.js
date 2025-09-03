@@ -1,41 +1,43 @@
-const express = require("express");
+import express from 'express';
+import { registerUser, loginUser,forgotPassword, verifyResetCode, resetPassword } from '../controllers/authController.js';
+
 const router = express.Router();
 
-const {
-  register,
-  login,
-  logout,
-  getMe,
-  updateProfile,
-  changePassword,
-} = require("../controllers/authController");
+router.post('/register', registerUser);
+router.post('/login', loginUser);
+router.post('/forgot-password', forgotPassword);
+router.post('/verify-code', verifyResetCode);
+router.post('/reset-password', resetPassword);
 
-// Import middleware
-const { protect } = require("../middleware/auth");
-const {
-  validateRegister,
-  validateLogin,
-  validateProfileUpdate,
-  validateChangePassword,
-} = require("../middleware/validation");
+// Admin Register
+import bcrypt from 'bcryptjs';
+import User from '../models/User.js';
 
-// @route   POST /api/auth/register
-router.post("/register", validateRegister, register);
+router.post('/admin/register', async (req, res) => {
+  try {
+    const { name, username, email, password } = req.body;
 
-// @route   POST /api/auth/login
-router.post("/login", validateLogin, login);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
 
-// @route   POST /api/auth/logout
-router.post("/logout", logout);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-// @route   GET /api/auth/me
-// @desc    Get current logged in user
-router.get("/profile", protect, getMe);
+    const adminUser = new User({
+      name,
+      username,
+      email,
+      password: hashedPassword,
+      role: 'admin', // 🔥 Explicitly set role
+    });
 
-// @route   PUT /api/auth/profile
-router.put("/profile", protect, validateProfileUpdate, updateProfile);
+    await adminUser.save();
+    res.status(201).json({ message: 'Admin registered successfully' });
 
-// @route   PUT /api/auth/change-password
-router.put("/change-password", protect, validateChangePassword, changePassword);
+  } catch (err) {
+    res.status(500).json({ message: 'Error registering admin', error: err.message });
+  }
+});
 
-module.exports = router;
+export default router;

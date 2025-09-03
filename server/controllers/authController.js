@@ -1,473 +1,253 @@
-const User = require("../models/User");
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const { validationResult } = require("express-validator");
+import User from "../models/User.js";
+import EcoPoint from "../models/EcoPoints.js";
+import PasswordReset from "../models/PasswordReset.js";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
-// genetate JWT token
+dotenv.config();
+
+// Generate a random 6-digit code
+const generateResetCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-// Send token response
-const sendTokenResponse = (user, statusCode, res, message) => {
-  const token = generateToken(user._id);
-<<<<<<< HEAD
-  
-  const options = {
-    expires: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // 7 days
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-=======
-
-  const options = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-  };
-
-  // Remove password from output
-  user.password = undefined;
-
-  res
-    .status(statusCode)
-<<<<<<< HEAD
-    .cookie('token', token, options)
-=======
-    .cookie("token", token, options)
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-    .json({
-      success: true,
-      message,
-      token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        ecoPoints: user.ecoPoints,
-        level: user.level,
-        badges: user.badges,
-        location: user.location,
-        preferences: user.preferences,
-        isVerified: user.isVerified,
-<<<<<<< HEAD
-        createdAt: user.createdAt
-      }
-=======
-        createdAt: user.createdAt,
-      },
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-    });
-};
-
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-exports.register = async (req, res) => {
-  console.log("Incoming req.body:", req.body);
-
-  const errors = validationResult(req);
-
-  // Check for validation errors
-  if (!errors.isEmpty()) {
-    const formatted = errors.array();
-    console.log("Validation failed:", formatted);
-    return res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors: formatted,
-    });
-  }
-  const { firstName, lastName, email, password, confirmPassword, role } =
-    req.body;
+export const registerUser = async (req, res) => {
+  const { name, username, email, password } = req.body;
   try {
-    // check if user already exist
-    const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ message: "User already exists" });
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: "Password do not match" });
+    if (!name || !username || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    //create new user
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ message: "Email already in use" });
+
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already taken" });
+    }
+
+    // create new user
     const user = await User.create({
-      firstName,
-      lastName,
+      name,
+      username,
       email,
       password,
-      role,
     });
-<<<<<<< HEAD
+
+    await user.save();
+
+    // add eco point record for the new user
+    const newEcoPoint = new EcoPoint({
+      user: user._id,
+      totalPoints: 0,
+      history: [],
+    });
+    await newEcoPoint.save();
+
+    const token = generateToken(user._id);
     res.status(201).json({
-      _id: user._id,
-      name: User.firstName,
-      email: User.email,
-      role: User.role,
-      token: generateToken(user._id),
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
     });
-
-    // Award welcome bonus points
-    await user.addEcoPoints(10);
-    await user.addBadge('Welcome', 'Welcome to EcoWise!');
-=======
-
-    // Award welcome bonus points
-    await user.addEcoPoints(10);
-    await user.addBadge("Welcome", "Welcome to EcoWise!");
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-
-    sendTokenResponse(user, 201, res, "User registered successfully");
-  } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  console.dir(errors, { depth: null });
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-exports.login = async (req, res, next) => {
+export const loginUser = async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: errors.array(),
-      });
+    // Check required fields
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
     }
 
-    // Find user and include password for comparison
+    // log to confirm what's being received
+    // console.log("Login attempt for:", email);
+
+    // Find user and include password
     const user = await User.findOne({ email }).select("+password");
 
-    // match password
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
-
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-<<<<<<< HEAD
-        message: 'Account has been deactivated. Please contact support.'
-      });
-    }
+    // console.log("user from db:", user);
+    // console.log("entered password:", password);
+    // console.log("stored password:", user.password);
 
-    if (user && (await user.matchPassword(password))) {
-      res.status(200).json({
-        _id: user._id,
-        name: user.firstName,
-        email: user.email,
-        role: user.role,
-        tokenL: generateToken(user._id),
-=======
-        message: "Account has been deactivated. Please contact support.",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
-
-<<<<<<< HEAD
-    sendTokenResponse(user, 200, res, 'Login successful');
-
-=======
-    sendTokenResponse(user, 200, res, "Login successful");
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
-exports.logout = (req, res) => {
-<<<<<<< HEAD
-  res.cookie('token', 'none', {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
-=======
-  res.cookie("token", "none", {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true,
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-  });
-
-  res.status(200).json({
-    success: true,
-<<<<<<< HEAD
-    message: 'Logged out successfully'
-=======
-    message: "Logged out successfully",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-  });
-};
-
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
-exports.getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-<<<<<<< HEAD
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-=======
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        ecoPoints: user.ecoPoints,
-        level: user.level,
-        badges: user.badges,
-        location: user.location,
-        preferences: user.preferences,
-        isVerified: user.isVerified,
-        lastLogin: user.lastLogin,
-<<<<<<< HEAD
-        createdAt: user.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('Get me error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-=======
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error("Get me error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-    });
-  }
-};
-
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
-exports.updateProfile = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-<<<<<<< HEAD
-        message: 'Validation failed',
-        errors: errors.array()
-=======
-        message: "Validation failed",
-        errors: errors.array(),
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    const { firstName, lastName, location, preferences } = req.body;
-<<<<<<< HEAD
-    
-    const user = await User.findById(req.user.id);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-=======
-
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    // Update allowed fields
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (location) user.location = location;
-    if (preferences) user.preferences = { ...user.preferences, ...preferences };
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-<<<<<<< HEAD
-      message: 'Profile updated successfully',
-=======
-      message: "Profile updated successfully",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        ecoPoints: user.ecoPoints,
-        level: user.level,
-        badges: user.badges,
-        location: user.location,
-        preferences: user.preferences,
-        isVerified: user.isVerified,
-<<<<<<< HEAD
-        createdAt: user.createdAt
-      }
-    });
-
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-=======
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error("Update profile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-    });
-  }
-};
-
-// @desc    Change password
-// @route   PUT /api/auth/change-password
-// @access  Private
-exports.changePassword = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-<<<<<<< HEAD
-        message: 'Validation failed',
-        errors: errors.array()
-=======
-        message: "Validation failed",
-        errors: errors.array(),
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    const { currentPassword, newPassword } = req.body;
-<<<<<<< HEAD
-    
-    const user = await User.findById(req.user.id).select('+password');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-=======
-
-    const user = await User.findById(req.user.id).select("+password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
-      });
-    }
-
-    // Check current password
-    const isMatch = await user.comparePassword(currentPassword);
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    // console.log("🔍 isMatch result:", isMatch);
     if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-<<<<<<< HEAD
-        message: 'Current password is incorrect'
-=======
-        message: "Current password is incorrect",
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = generateToken(user._id);
+    res.json({
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
+
+    // After successful authentication, update lastLogin
+    await User.findByIdAndUpdate(user._id, {
+      $set: { lastLogin: new Date() },
+      $push: {
+        loginHistory: {
+          timestamp: new Date(),
+          ip: req.ip,
+          device: req.headers["user-agent"],
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Handle forgot password request
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Check if email exists in database
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: "No account found with that email address",
       });
     }
 
-    // Update password
-    user.password = newPassword;
-    await user.save();
+    // Generate a 6-digit code
+    const resetCode = generateResetCode();
+
+    // Set expiration time (10 MINUTE from now)
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // Changed to 10 minute
+
+    // Store or update reset code in database
+    await PasswordReset.findOneAndUpdate(
+      { email },
+      {
+        email,
+        code: resetCode,
+        expiresAt,
+      },
+      { upsert: true, new: true }
+    );
+
+    // console.log(`RESET CODE for ${email}: ${resetCode}`);
 
     res.status(200).json({
-      success: true,
-<<<<<<< HEAD
-      message: 'Password changed successfully'
+      message: "Verification code sent to your email",
+      resetCode: resetCode, // Return code for demo purposes
+      expiresIn: 600,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Verify the reset code
+export const verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    // Find the reset record
+    const resetRecord = await PasswordReset.findOne({ email });
+
+    // Check if record exists and is valid
+    if (!resetRecord) {
+      return res.status(400).json({ message: "Invalid reset request" });
+    }
+
+    // Check if code has expired
+    if (new Date() > new Date(resetRecord.expiresAt)) {
+      return res.status(400).json({ message: "Verification code has expired" });
+    }
+
+    // Verify code
+    if (resetRecord.code !== code) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Generate a secure token for password reset
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Update reset record with the token
+    resetRecord.resetToken = resetToken;
+    await resetRecord.save();
+
+    res.status(200).json({
+      message: "Code verified successfully",
+      resetToken,
+    });
+  } catch (error) {
+    console.error("Verify code error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Reset the password
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body;
+
+    // Find the reset record
+    const resetRecord = await PasswordReset.findOne({
+      email,
+      resetToken: token,
     });
 
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    // Check if record exists and is valid
+    if (!resetRecord) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+
+    // Check if token has expired
+    if (new Date() > new Date(resetRecord.expiresAt)) {
+      return res.status(400).json({ message: "Reset token has expired" });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // CHANGE THIS PART: Use findOneAndUpdate instead of save()
+    await User.findOneAndUpdate(
+      { email },
+      { password: hashedPassword },
+      { new: true, runValidators: false }
+    );
+
+    // Delete the reset record
+    await PasswordReset.findByIdAndDelete(resetRecord._id);
+
+    res.status(200).json({
+      message: "Password has been reset successfully",
     });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
-=======
-      message: "Password changed successfully",
-    });
-  } catch (error) {
-    console.error("Change password error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-};
->>>>>>> 4caa9b560694b674764defdb47cf6f0a54066b11

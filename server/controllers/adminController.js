@@ -1,485 +1,147 @@
+import Campaign from "../models/Campaign.js";
+import Blog from "../models/Blog.js";
+import User from "../models/user.js";
+import Notification from "../models/Notification.js";
 
-const User = require('../models/User');
-const Campaign = require('../models/Campaign');
-
-// Get all campaigns for admin (including pending, rejected, etc.)
-exports.getAllCampaignsForAdmin = async (req, res) => {
+// Approve Campaign
+export const approveCampaign = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found" });
 
-    // Build filter object
-    const filter = {};
-    
-    if (req.query.status) {
-      filter.status = req.query.status;
-    }
-    
-    if (req.query.campaignType) {
-      filter.campaignType = req.query.campaignType;
-    }
-    
-    if (req.query.organizer) {
-      filter.organizer = req.query.organizer;
-    }
-    
-    if (req.query.reported === 'true') {
-      filter['reports.0'] = { $exists: true };
-    }
-
-    // Sort options
-    let sort = {};
-    if (req.query.sort) {
-      const sortField = req.query.sort;
-      const sortOrder = req.query.order === 'desc' ? -1 : 1;
-      sort[sortField] = sortOrder;
-    } else {
-      sort = { createdAt: -1 };
-    }
-
-    const campaigns = await Campaign.find(filter)
-      .populate('organizer', 'name email profileImage ecoPoints')
-      .populate('participants.user', 'name profileImage')
-      .populate('approvedBy', 'name')
-      .populate('reports.user', 'name email')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Campaign.countDocuments(filter);
-
-    // Get campaign statistics
-    const stats = await Campaign.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    res.json({
-      success: true,
-      data: campaigns,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalCampaigns: total,
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
-      },
-      stats: stats.reduce((acc, stat) => {
-        acc[stat._id] = stat.count;
-        return acc;
-      }, {})
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching campaigns',
-      error: error.message
-    });
-  }
-};
-
-// Approve campaign
-exports.approveCampaign = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { ecoPointsReward, featured = false } = req.body;
-
-    const campaign = await Campaign.findById(id);
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-
-    if (campaign.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only pending campaigns can be approved'
-      });
-    }
-
-    // Update campaign status
-    campaign.status = 'approved';
-    campaign.approvedBy = req.user.id;
-    campaign.approvedAt = new Date();
-    campaign.featured = featured;
-    
-    if (ecoPointsReward !== undefined) {
-      campaign.ecoPointsReward = ecoPointsReward;
-    }
-
+    campaign.status = "approved";
     await campaign.save();
 
-    // Award eco points to organizer for campaign approval
-    const organizer = await User.findById(campaign.organizer);
-    if (organizer) {
-      organizer.ecoPoints += 25; // Bonus points for approved campaign
-      await organizer.save();
-    }
-
-    await campaign.populate('organizer', 'name email profileImage');
-
-    res.json({
-      success: true,
-      message: 'Campaign approved successfully',
-      data: campaign
+    // Notify the user about the approval
+    await Notification.create({
+      user: campaign.createdBy,
+      title: "Your campaign was approved",
+      message: `Your campaign “${campaign.title}” is live now.`,
+      type: "moderation",
+      link: `/campaigns/${campaign._id}`,
+      meta: { campaignId: String(campaign._id), status: "approved" },
     });
+
+    // Broadcast to all users
+    const users = await User.find({}, { _id: 1 }).lean();
+    const docs = users.map((u) => ({
+      user: u._id,
+      title: "New Campaign Launched",
+      message: `Join our new campaign: “${campaign.title}”.`,
+      type: "campaign",
+      link: `/campaigns/${campaign._id}`,
+      meta: { campaignId: String(campaign._id) },
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    const inserted = await Notification.insertMany(docs);
+    console.log("Broadcasted campaign notifications:", inserted.length);
+
+    res.json({ message: "Campaign approved", campaign });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error approving campaign',
-      error: error.message
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Reject campaign
-exports.rejectCampaign = async (req, res) => {
+// Reject Campaign
+export const rejectCampaign = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { rejectionReason } = req.body;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found" });
 
-    if (!rejectionReason) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection reason is required'
-      });
-    }
-
-    const campaign = await Campaign.findById(id);
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-
-    if (campaign.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only pending campaigns can be rejected'
-      });
-    }
-
-    campaign.status = 'rejected';
-    campaign.rejectionReason = rejectionReason;
-    campaign.approvedBy = req.user.id;
-
-    await campaign.save();
-    await campaign.populate('organizer', 'name email profileImage');
-
-    res.json({
-      success: true,
-      message: 'Campaign rejected successfully',
-      data: campaign
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error rejecting campaign',
-      error: error.message
-    });
-  }
-};
-
-// Feature/Unfeature campaign
-exports.toggleFeatureCampaign = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const campaign = await Campaign.findById(id);
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-
-    campaign.featured = !campaign.featured;
+    campaign.status = "rejected";
     await campaign.save();
 
-    res.json({
-      success: true,
-      message: `Campaign ${campaign.featured ? 'featured' : 'unfeatured'} successfully`,
-      data: campaign
+    // Notify the user about the rejection
+    await Notification.create({
+      user: campaign.createdBy,
+      title: "Your campaign was rejected",
+      message: `Your campaign “${campaign.title}” was rejected.`,
+      type: "moderation",
+      link: `/campaigns/${campaign._id}`,
+      meta: { campaignId: String(campaign._id), status: "rejected" },
     });
+
+    res.json({ message: "Campaign rejected", campaign });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating campaign feature status',
-      error: error.message
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Delete campaign (Admin only)
-exports.deleteCampaignByAdmin = async (req, res) => {
+// approve blogs
+export const approveBlog = async (req, res) => {
   try {
-    const { id } = req.params;
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ message: "Blog not found" });
 
-    const campaign = await Campaign.findById(id);
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
+    // Check if already approved to prevent duplicate notifications
+    if (blog.status === "approved") {
+      return res.json({ message: "Blog already approved", blog });
     }
 
-    await Campaign.findByIdAndDelete(id);
+    blog.status = "approved";
+    await blog.save();
 
-    res.json({
-      success: true,
-      message: 'Campaign deleted successfully'
+    // Notify blog author
+    await Notification.create({
+      user: blog.authorId,
+      title: "Your blog was approved",
+      message: `Good news! Your blog "${blog.title}" has been approved.`,
+      type: "moderation",
+      link: `/blogs/${blog._id}`,
+      meta: { blogId: String(blog._id), status: "approved" },
     });
+
+    // Broadcast to all users about new blog
+    const usersForBroadcast = await User.find({}, { _id: 1 }).lean();
+    if (usersForBroadcast.length) {
+      await Notification.insertMany(
+        usersForBroadcast.map((u) => ({
+          user: u._id,
+          title: "New Blog Posted",
+          message: `"${blog.title}" is now available.`,
+          type: "blog",
+          link: `/blogs/${blog._id}`,
+          meta: { blogId: String(blog._id) },
+          read: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
+      );
+      console.log("Broadcasted blog notifications:", usersForBroadcast.length);
+    }
+
+    res.json({ message: "Blog approved", blog });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting campaign',
-      error: error.message
-    });
+    console.error("Error approving blog:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Mark campaign as completed and award points
-exports.completeCampaign = async (req, res) => {
+// reject blogs
+export const rejectBlog = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { attendedParticipants } = req.body; // Array of participant IDs who attended
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ message: "Blog not found" });
 
-    const campaign = await Campaign.findById(id)
-      .populate('participants.user', 'name email');
+    blog.status = "rejected";
+    await blog.save();
 
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-
-    if (campaign.status !== 'approved') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only approved campaigns can be marked as completed'
-      });
-    }
-
-    // Mark campaign as completed
-    campaign.status = 'completed';
-
-    // Mark attendance and award eco points
-    if (attendedParticipants && attendedParticipants.length > 0) {
-      for (const participant of campaign.participants) {
-        const attended = attendedParticipants.includes(participant.user._id.toString());
-        participant.attended = attended;
-
-        // Award eco points to participants who attended
-        if (attended) {
-          const user = await User.findById(participant.user._id);
-          if (user) {
-            user.ecoPoints += campaign.ecoPointsReward;
-            await user.save();
-          }
-        }
-      }
-    }
-
-    await campaign.save();
-
-    res.json({
-      success: true,
-      message: 'Campaign marked as completed and eco points awarded',
-      data: campaign
+    // Notify the user about the rejection
+    await Notification.create({
+      user: blog.authorId,
+      title: "Your blog was rejected",
+      message: `Your blog “${blog.title}” was rejected. Please review and resubmit.`,
+      type: "moderation",
+      link: `/blogs/${blog._id}`,
+      meta: { blogId: String(blog._id), status: "rejected" },
     });
+
+    res.json({ message: "Blog rejected", blog });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error completing campaign',
-      error: error.message
-    });
-  }
-};
-
-// Get campaign analytics
-exports.getCampaignAnalytics = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    
-    let dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter = {
-        createdAt: {
-          $gte: new Date(startDate),
-          $lte: new Date(endDate)
-        }
-      };
-    }
-
-    // Campaign statistics by status
-    const statusStats = await Campaign.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Campaign statistics by type
-    const typeStats = await Campaign.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: '$campaignType',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Campaign statistics by city
-    const cityStats = await Campaign.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: '$location.city',
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
-
-    // Monthly campaign creation trend
-    const monthlyStats = await Campaign.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
-
-    // Top organizers
-    const topOrganizers = await Campaign.aggregate([
-      { $match: { ...dateFilter, status: 'approved' } },
-      {
-        $group: {
-          _id: '$organizer',
-          campaignCount: { $sum: 1 },
-          totalParticipants: { $sum: '$participantCount' }
-        }
-      },
-      { $sort: { campaignCount: -1 } },
-      { $limit: 10 },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'organizer'
-        }
-      },
-      { $unwind: '$organizer' },
-      {
-        $project: {
-          organizerName: '$organizer.name',
-          organizerEmail: '$organizer.email',
-          campaignCount: 1,
-          totalParticipants: 1
-        }
-      }
-    ]);
-
-    // Participation statistics
-    const participationStats = await Campaign.aggregate([
-      { $match: { ...dateFilter, status: 'approved' } },
-      {
-        $group: {
-          _id: null,
-          totalCampaigns: { $sum: 1 },
-          totalParticipants: { $sum: '$participantCount' },
-          averageParticipants: { $avg: '$participantCount' },
-          totalViews: { $sum: '$views' },
-          totalLikes: { $sum: '$likesCount' }
-        }
-      }
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        statusStats: statusStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        typeStats: typeStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        cityStats,
-        monthlyStats,
-        topOrganizers,
-        participationStats: participationStats[0] || {}
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching campaign analytics',
-      error: error.message
-    });
-  }
-};
-
-// Get reported campaigns
-exports.getReportedCampaigns = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const campaigns = await Campaign.find({
-      'reports.0': { $exists: true }
-    })
-      .populate('organizer', 'name email profileImage')
-      .populate('reports.user', 'name email')
-      .sort({ 'reports.reportedAt': -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Campaign.countDocuments({
-      'reports.0': { $exists: true }
-    });
-
-    res.json({
-      success: true,
-      data: campaigns,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalReportedCampaigns: total
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching reported campaigns',
-      error: error.message
-    });
+    res.status(500).json({ message: error.message });
   }
 };
