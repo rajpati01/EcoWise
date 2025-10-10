@@ -1,12 +1,18 @@
 import express from 'express';
 import { protect, admin } from '../middleware/auth.js';
 import  isAdmin  from '../middleware/admin.js'; 
+
+// Use campaign approve/reject from adminCampaignController so approval awards EcoPoints
 import {
+  getAdminCampaigns,
+  deleteCampaign,
+  bulkApproveCampaign,
+  bulkRejectCampaign,
+  bulkDeleteCampaign,
   approveCampaign,
   rejectCampaign,
-  approveBlog,
-  rejectBlog,
-} from '../controllers/adminController.js';
+} from '../controllers/adminCampaignController.js';
+
 import { 
   getUsers,
   getUserDetails,
@@ -17,16 +23,10 @@ import {
   deleteBlog,
   bulkApproveBlog,
   bulkRejectBlog,
-  bulkDeleteBlog
+  bulkDeleteBlog,
+  approveBlog,
+  rejectBlog,
 } from '../controllers/adminBlogController.js';
-
-import {
-  getAdminCampaigns,
-  deleteCampaign,
-  bulkApproveCampaign,
-  bulkRejectCampaign,
-  bulkDeleteCampaign
-} from '../controllers/adminCampaignController.js';
 import {
   getAnalytics
 } from '../controllers/adminAnalyticsController.js';
@@ -37,8 +37,8 @@ const router = express.Router();
 router.use(protect, admin);
 
 // Campaign approval/rejection
-router.post('/campaigns/:id/approve', protect, isAdmin, approveCampaign);
-router.post('/campaigns/:id/reject', protect, isAdmin, rejectCampaign);
+router.post('/campaigns/:campaignId/approve', protect, isAdmin, approveCampaign);
+router.post('/campaigns/:campaignId/reject', protect, isAdmin, rejectCampaign);
 
 // Blog approval/rejection
 router.post('/blogs/:id/approve', protect, isAdmin, approveBlog);

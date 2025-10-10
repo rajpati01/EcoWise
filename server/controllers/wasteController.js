@@ -5,6 +5,7 @@ import updateEcoPoints from "../utils/ecoPointsHelper.js";
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
+import path from "path";
 
 export const classifyWaste = async (req, res) => {
   try {
@@ -41,7 +42,10 @@ export const classifyWaste = async (req, res) => {
     const ai = aiRes.data;
     // ai = { type, confidence, instructions, category, pointsEarned, filename }
 
-    const webPath = "/uploads/" + file.filename;
+    const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+    const webPath = `${baseUrl}/uploads/${path.posix.basename(file.filename)}`;
+    // const webPath = "/uploads/" + file.filename;
+
     const classification = await WasteClassification.create({
       user: user._id,
       imageUrl: webPath, //file.path,
@@ -88,6 +92,10 @@ export const classifyWaste = async (req, res) => {
     res.status(200).json(ai); // Send back all AI info for frontend
   } catch (error) {
     console.error("Classification error:", error);
+    res.status(500).json({
+      message: "Classification failed",
+      error: error?.message || error,
+    });
     res
       .status(500)
       .json({

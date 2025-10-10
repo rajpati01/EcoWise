@@ -6,10 +6,20 @@ import Notification from "../models/Notification.js";
 // Approve Campaign
 export const approveCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    // normalize param name
+    const campaignId = req.params.campaignId || req.params.id;
+    console.log(
+      "adminController.approveCampaign params:",
+      req.params,
+      "using id:",
+      campaignId
+    );
+
+    const campaign = await Campaign.findById(campaignId);
     if (!campaign)
       return res.status(404).json({ message: "Campaign not found" });
 
+    // id found — update and notify (this is the older/legacy notification)
     campaign.status = "approved";
     await campaign.save();
 
@@ -48,7 +58,15 @@ export const approveCampaign = async (req, res) => {
 // Reject Campaign
 export const rejectCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaignId = req.params.campaignId || req.params.id;
+    console.log(
+      "adminController.rejectCampaign params:",
+      req.params,
+      "using id:",
+      campaignId
+    );
+
+    const campaign = await Campaign.findById(campaignId);
     if (!campaign)
       return res.status(404).json({ message: "Campaign not found" });
 

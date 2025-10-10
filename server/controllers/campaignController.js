@@ -1,7 +1,7 @@
 import Campaign from "../models/Campaign.js";
 import User from "../models/user.js";
-import updateEcoPoints from "../utils/ecoPointsHelper.js";
 import Notification from "../models/Notification.js";
+import updateEcoPoints from "../utils/ecoPointsHelper.js";
 
 export const createCampaign = async (req, res) => {
   try {
@@ -20,17 +20,24 @@ export const createCampaign = async (req, res) => {
       createdBy: req.user._id,
       status: "pending",
     });
-    // console.log("Creating campaign by:", req.user);
-
-    // Add EcoPoints (10 points for creating a campaign)
-    await updateEcoPoints(
-      req.user._id,
-      "campaign",
-      10,
-      `Created campaign: ${campaign.title}`
-    );
 
     await campaign.save();
+
+    // Notify creator that campaign has been submitted for approval
+    try {
+      await Notification.create({
+        user: req.user._id,
+        title: "Campaign Submitted for Approval",
+        message: `Your campaign "${campaign.title}" has been submitted for approval.`,
+        type: "moderation",
+        link: `/campaigns/${campaign._id}`,
+        meta: { campaignId: String(campaign._id), status: "pending" },
+      });
+    } catch (notifyErr) {
+      // Notification failing is non-fatal for creation
+      console.error("Failed to create submission notification:", notifyErr);
+    }
+
     res.status(201).json(campaign);
   } catch (error) {
     console.error("Campaign creation failed:", error);
@@ -99,7 +106,6 @@ export const joinCampaign = async (req, res) => {
     }
 
     // Check if user is already a participant
-    // const userId = req.user._id.toString();
     let alreadyJoined = false;
 
     // Check existing participants
@@ -189,47 +195,96 @@ export const getJoinedCampaigns = async (req, res) => {
 export const updateCampaignStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const campaign = await Campaign.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const campaignId = req.params.id;
 
-    if (!campaign)
-      return res.status(404).json({ message: "Campaign not found" });
+    // Fetch campaign so we know previous status
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) return res.status(404).json({ message: "Campaign not found" });
 
-    // Notify creator
-    if (status === "approved") {
-      await Notification.create({
-        user: campaign.createdBy,
-        title: "Your campaign was approved",
-        message: `Your campaign “${campaign.title}” is live now.`,
-        type: "moderation",
-        link: `/campaigns/${campaign._id}`,
-        meta: { campaignId: String(campaign._id), status: "approved" },
-      });
+    const prevStatus = campaign.status;
+    campaign.status = status;
+    await campaign.save();
 
-      const users = await User.find({}, { _id: 1 }).lean();
-      const docs = users.map((u) => ({
-        user: u._id,
-        title: "New Campaign Launched",
-        message: `Join our new campaign: “${campaign.title}”.`,
-        type: "campaign",
-        link: `/campaigns/${campaign._id}`,
-        meta: { campaignId: String(campaign._id) },
-        read: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
-      const inserted = await Notification.insertMany(docs);
-      console.log(
-        "Broadcasted campaign notifications (status update):",
-        inserted.length
-      );
+    // If approved and previously not approved -> award eco points + custom notification
+    if (status === "approved" && prevStatus !== "approved") {
+      try {
+        // Award eco points (10 points for campaign creation on approval)
+        await updateEcoPoints(
+          campaign.createdBy,
+          "campaign",
+          10,
+          `Approved campaign: ${campaign.title}`
+        );
+
+        // Notify creator about approval + eco points
+        await Notification.create({
+          user: campaign.createdBy,
+          title: "Campaign Approved — EcoPoints Awarded",
+          message: `Your campaign "${campaign.title}" was approved and you've received 10 EcoPoints.`,
+          type: "moderation",
+          link: `/campaigns/${campaign._id}`,
+          meta: { campaignId: String(campaign._id), status: "approved", ecoPoints: 10 },
+        });
+
+        // Broadcast to all users that a new campaign launched
+        const users = await User.find({}, { _id: 1 }).lean();
+        const docs = users.map((u) => ({
+          user: u._id,
+          title: "New Campaign Launched",
+          message: `Join our new campaign: “${campaign.title}”.`,
+          type: "campaign",
+          link: `/campaigns/${campaign._id}`,
+          meta: { campaignId: String(campaign._id) },
+          read: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }));
+        if (docs.length) {
+          await Notification.insertMany(docs);
+        }
+      } catch (err) {
+        console.error("Error awarding eco points or sending notifications in updateCampaignStatus:", err);
+        // Do not fail the status update because of notification/points errors
+      }
+    } else if (status === "approved" && prevStatus === "approved") {
+      // Already approved: ensure we still send a campaign broadcast if desired, but avoid awarding points
+      try {
+        const users = await User.find({}, { _id: 1 }).lean();
+        const docs = users.map((u) => ({
+          user: u._id,
+          title: "New Campaign Launched",
+          message: `Join our new campaign: “${campaign.title}”.`,
+          type: "campaign",
+          link: `/campaigns/${campaign._id}`,
+          meta: { campaignId: String(campaign._id) },
+          read: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }));
+        if (docs.length) {
+          await Notification.insertMany(docs);
+        }
+      } catch (err) {
+        console.error("Error broadcasting campaign notifications for already-approved campaign:", err);
+      }
+    } else if (status === "rejected") {
+      try {
+        await Notification.create({
+          user: campaign.createdBy,
+          title: "Campaign Rejected",
+          message: `Your campaign "${campaign.title}" was rejected by the admin.`,
+          type: "moderation",
+          link: `/campaigns/${campaign._id}`,
+          meta: { campaignId: String(campaign._id), status: "rejected" },
+        });
+      } catch (notifyErr) {
+        console.error("Failed to create rejection notification:", notifyErr);
+      }
     }
 
     res.json(campaign);
   } catch (err) {
+    console.error("Error updating campaign status:", err);
     res.status(500).json({ message: "Error updating campaign status" });
   }
 };

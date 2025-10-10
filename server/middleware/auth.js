@@ -1,150 +1,79 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+import jwt from "jsonwebtoken";
+import User from "../models/user.js";
 
-// Protect routes - Authentication middleware
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
+  let token;
+
   try {
-    let token;
-
-    if (!token) {
-      console.log("🚫 No token received");
-      return res.status(401).json({ message: "No token" });
-    }
-
-    //  Add a safe check here to prevent undefined error
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      try {
-        token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id).select("-password");
-        next();
-      } catch (err) {
-        console.error("Auth middleware error:", err.message);
-        return res
-          .status(401)
-          .json({ message: "Not authorized, token failed" });
-      }
-    }
-
-    if (!token) {
-      return res.status(401).json({ message: "Not authorized, no token" });
-    }
-
-    // Check for token in header
+    // Check for token in headers
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
     ) {
       token = req.headers.authorization.split(" ")[1];
-    }
-    // Check for token in cookies
-    else if (req.cookies.token) {
-      token = req.cookies.token;
-    }
 
-    // Make sure token exists
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authorized to access this route",
-      });
-    }
+      // Log token for debugging (remove in production)
+      // console.log("Token received:", token);
 
-    try {
+      if (!token || token === "null" || token === "undefined") {
+        return res.status(401).json({
+          success: false,
+          message: "Not authorized, invalid token format",
+        });
+      }
+
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Get user from token
-      const user = await User.findById(decoded.userId);
+      req.user = await User.findById(decoded.id).select("-password");
+      req.user.isAdmin = req.user.role === 'admin';
 
-      if (!user) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "No user found with this token",
+          message: "User not found",
         });
       }
 
-      // Check if user is active
-      if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: "User account has been deactivated",
-        });
-      }
-
-      // Add user to request object
-      req.user = user;
       next();
-    } catch (error) {
+    } else {
       return res.status(401).json({
         success: false,
-        message: "Not authorized to access this route",
+        message: "Not authorized, no token provided",
       });
     }
   } catch (error) {
-    console.error("Auth middleware error:", error);
-    res.status(500).json({
+    console.error("Auth error:", error);
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token format",
+      });
+    }
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired",
+      });
+    }
+
+    return res.status(401).json({
       success: false,
-      message: "Server error in authentication",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: "Authentication failed",
     });
   }
 };
 
-// Grant access to specific roles
-exports.authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `User role '${req.user.role}' is not authorized to access this route`,
-      });
-    }
+// Admin middleware
+export const admin = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
     next();
-  };
-};
-
-// Optional authentication - doesn't require login but adds user info if logged in
-exports.optionalAuth = async (req, res, next) => {
-  try {
-    let token;
-
-    // Check for token in header
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-    // Check for token in cookies
-    else if (req.cookies.token) {
-      token = req.cookies.token;
-    }
-
-    if (token) {
-      try {
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // Get user from token
-        const user = await User.findById(decoded.userId);
-
-        if (user && user.isActive) {
-          req.user = user;
-        }
-      } catch (error) {
-        // Token is invalid, but that's okay for optional auth
-        // Just continue without user
-      }
-    }
-
-    next();
-  } catch (error) {
-    console.error("Optional auth middleware error:", error);
-    // For optional auth, continue even if there's an error
-    next();
+  } else {
+    res
+      .status(403)
+      .json({ success: false, message: "Not authorized as admin" });
   }
 };

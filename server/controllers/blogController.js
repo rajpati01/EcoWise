@@ -28,17 +28,20 @@ export const createBlog = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       $push: { blogs: blog._id },
     });
-    // Award EcoPoints for creating a blog
+
+    // Notify author that the article was submitted for approval (do not award EcoPoints here)
     try {
-      await updateEcoPoints(
-        userId,
-        "article", // Match the action type in your EcoPoint model
-        5, // Points for creating a blog
-        `Created blog: ${savedBlog.title}`
-      );
-    } catch (pointsError) {
-      console.error("Error awarding EcoPoints:", pointsError);
-      // Continue even if points award fails
+      await Notification.create({
+        user: userId,
+        title: "Article Submitted for Approval",
+        message: `Your article "${savedBlog.title}" has been submitted for review. You'll be notified once it's approved.`,
+        type: "moderation",
+        link: `/blogs/${savedBlog._id}`,
+        meta: { blogId: String(savedBlog._id), status: "pending" },
+      });
+    } catch (notifyErr) {
+      console.error("Failed to create blog submission notification:", notifyErr);
+      // continue - notification failing shouldn't block creation
     }
 
     res.status(201).json({
@@ -50,6 +53,7 @@ export const createBlog = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Get all blogs, optionally filter by status
 export const getBlogs = async (req, res) => {
