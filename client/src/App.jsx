@@ -8,19 +8,17 @@ import { AuthProvider } from './context/AuthContext';
 //Components
 import Footer from './components/Footer'
 import Header from './components/Header'
-import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Pages
 import Home  from './pages/Home'
-import About from './pages/About'
 // import WasteClassification from './pages/WasteClassification';
 import Blogs from './pages/Blogs'
 import Campaigns from './pages/Campaigns'
-import Leaderboard from './pages/Leaderboard'
-import Profile from './pages/Profile'
+// import Leaderboard from './pages/Leaderboard'
+// import Profile from './pages/Profile'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import NotFound from './pages/NotFound'
+import NotFound from './pages/not-found'
 
 // Admin
 // import AdminDashboard from './pages/admin/AdminDashboard';
@@ -40,14 +38,13 @@ function App() {
             <ScrollToTop />
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
               <Route path="/blogs" element={<Blogs />} />
-              <Route path="/Leaderboard" element={<Leaderboard/>} />
+              {/* <Route path="/Leaderboard" element={<Leaderboard/>} /> */}
               <Route path="/profile" element={<Profile />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Register />} />
-              <Route path="/profile/:id" element={<Profile />} />
+              {/* <Route path="/profile/:id" element={<Profile />} /> */}
               <Route path="/campaigns" element={<Campaigns />} />
             </Routes>
           </main>
