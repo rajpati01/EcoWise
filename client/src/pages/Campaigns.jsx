@@ -1,548 +1,402 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { campaignService } from "../services/campaignService";
+import { useAuth } from "../hooks/useAuth";
+import CampaignCard from "../components/CampaignCard";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Label } from "../components/ui/label";
 import {
-  Users,
-  X,
-  MapPin,
-  Calendar,
-  User,
-  ChevronRight,
-  Target,
-  Clock,
-  Award,
-} from "lucide-react";
-import axios from "axios";
-import { useAuth } from "../context/AuthContext";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { useToast } from "../hooks/use-toast";
+import { Plus, Search, Calendar, MapPin, Users, Loader2 } from "lucide-react";
+import { format } from "date-fns";
 
-const Campaigns = ({ setCurrentPage }) => {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // const [campaigns] = useState([
-  //   {
-  //     id: 1,
-  //     title: 'Bagmati River Cleanup',
-  //     description: 'Join us for a community cleanup along the Bagmati River. Together we can restore our waterways!',
-  //     location: 'Bagmati River, Kathmandu',
-  //     date: '2025-06-15',
-  //     participants: 32,
-  //     organizer: 'Green Nepal Initiative',
-  //     status: 'upcoming',
-  //     category: 'Water Conservation',
-  //     ecoPoints: 50,
-  //     image: '/api/placeholder/400/200'
-  //   },
-  //   {
-  //     id: 2,
-  //     title: 'Plastic-Free Thamel Campaign',
-  //     description: 'Help make Thamel plastic-free by distributing reusable bags and educating tourists.',
-  //     location: 'Thamel, Kathmandu',
-  //     date: '2025-06-20',
-  //     participants: 18,
-  //     organizer: 'Eco Warriors Nepal',
-  //     status: 'upcoming',
-  //     category: 'Plastic Reduction',
-  //     ecoPoints: 75,
-  //     image: '/api/placeholder/400/200'
-  //   },
-  //   {
-  //     id: 3,
-  //     title: 'School Waste Awareness Program',
-  //     description: 'Educational program teaching students about proper waste segregation and recycling.',
-  //     location: 'Various Schools, Kathmandu Valley',
-  //     date: '2025-06-25',
-  //     participants: 45,
-  //     organizer: 'EcoWise Education Team',
-  //     status: 'upcoming',
-  //     category: 'Education',
-  //     ecoPoints: 60,
-  //     image: '/api/placeholder/400/200'
-  //   }
-  // ]);
-
+const Campaigns = () => {
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
     title: "",
-    location: "",
-    date: "",
-    expectedParticipants: "",
     description: "",
-    category: "Education",
+    location: "",
+    startDate: "",
+    endDate: "",
   });
 
-  // Fetch campaigns from API
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
+  const { data: campaigns = [], isLoading } = useQuery({
+    queryKey: ["/api/campaigns"],
+    queryFn: () => campaignService.getCampaigns(),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
 
-  const fetchCampaigns = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("http://localhost:3001/api/campaigns");
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setCampaigns(result.data);
-      } else {
-        console.error("Failed to fetch campaigns:", result.message);
-        // Fallback to mock data if API fails
-        setCampaigns([
-          {
-            id: 1,
-            title: "Bagmati River Cleanup",
-            description:
-              "Join us for a community cleanup along the Bagmati River. Together we can restore our waterways!",
-            location: { address: "Bagmati River, Kathmandu" },
-            date: "2025-06-15",
-            participantCount: 32,
-            organizer: { name: "Green Nepal Initiative" },
-            status: "approved",
-            campaignType: "cleanup",
-            ecoPointsReward: 50,
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error("Error fetching campaigns:", error);
-      // Fallback to mock data
-      setCampaigns([
-        {
-          id: 1,
-          title: "Bagmati River Cleanup",
-          description:
-            "Join us for a community cleanup along the Bagmati River. Together we can restore our waterways!",
-          location: { address: "Bagmati River, Kathmandu" },
-          date: "2025-06-15",
-          participantCount: 32,
-          organizer: { name: "Green Nepal Initiative" },
-          status: "approved",
-          campaignType: "cleanup",
-          ecoPointsReward: 50,
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const createMutation = useMutation({
+    mutationFn: (campaignData) => campaignService.createCampaign(campaignData),
+    onSuccess: () => {
+      setDialogOpen(false);
+      setNewCampaign({
+        title: "",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      toast({
+        title: "Campaign Created!",
+        description: "Your campaign has been submitted for approval.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Create Campaign",
+        description: error?.response?.data?.message || error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleInputChange = (e) => {
-    setNewCampaign({
-      ...newCampaign,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setNewCampaign((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleCreateCampaign = async () => {
-    try {
-      // Validate required fields
-      if (
-        !newCampaign.title ||
-        !newCampaign.location ||
-        !newCampaign.date ||
-        !newCampaign.description
-      ) {
-        alert("Please fill in all required fields");
-        return;
-      }
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-      // Prepare the data for API
-      const campaignData = {
-        title: newCampaign.title,
-        description: newCampaign.description,
-        location: newCampaign.location,
-        date: newCampaign.date,
-        maxParticipants: newCampaign.expectedParticipants
-          ? parseInt(newCampaign.expectedParticipants)
-          : null,
-        category: newCampaign.category,
-      };
-
-      const token = localStorage.getItem('token');
-
-      // Make API call to create campaign
-      const response = await axios.post("http://localhost:3001/api/campaigns", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(campaignData),
+    // Basic validation for start/end dates
+    if (!newCampaign.startDate || !newCampaign.endDate) {
+      toast({
+        title: "Validation error",
+        description: "Please provide both start and end date/time.",
+        variant: "destructive",
       });
-
-      console.log("Token being sent:", token);
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        alert("Campaign created successfully!");
-        setShowCreateForm(false);
-        setNewCampaign({
-          title: "",
-          location: "",
-          date: "",
-          expectedParticipants: "",
-          description: "",
-          category: "Education",
-        });
-        // Refresh campaigns list
-        fetchCampaigns();
-      } else {
-        throw new Error(result.message || "Failed to create campaign");
-      }
-    } catch (error) {
-      console.error("Error creating campaign:", error);
-      alert("Error creating campaign: " + error.message);
+      return;
     }
-  };
 
-  const handleJoinCampaign = async (campaignId) => {
-    try {
-      const response = await fetch(`/api/campaigns/${campaignId}/join`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const start = new Date(newCampaign.startDate);
+    const end = new Date(newCampaign.endDate);
+    const now = new Date();
+
+    // Prevent selecting start date in the past
+    if (start.getTime() < now.getTime() - 1000) {
+      toast({
+        title: "Validation error",
+        description: "Start date/time cannot be in the past.",
+        variant: "destructive",
       });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        alert("Successfully joined the campaign!");
-        // Refresh campaigns to update participant count
-        fetchCampaigns();
-      } else {
-        throw new Error(result.message || "Failed to join campaign");
-      }
-    } catch (error) {
-      console.error("Error joining campaign:", error);
-      alert("Error joining campaign: " + error.message);
+      return;
     }
-  };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "upcoming":
-        return "bg-blue-100 text-blue-800";
-      case "ongoing":
-        return "bg-green-100 text-green-800";
-      case "completed":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    // End must be after start
+    if (end.getTime() <= start.getTime()) {
+      toast({
+        title: "Validation error",
+        description: "End date/time must be after the start date/time.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    // All validations passed, submit
+    createMutation.mutate(newCampaign);
   };
 
-  const getCategoryIcon = (category) => {
-    switch (category) {
-      case "Water Conservation":
-        return "🌊";
-      case "Plastic Reduction":
-        return "♻️";
-      case "Education":
-        return "📚";
-      default:
-        return "🌱";
-    }
-  };
+  const filteredCampaigns = campaigns.filter(
+    (campaign) =>
+      campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      campaign.location.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  if (loading) {
+  const activeCampaigns = filteredCampaigns.filter(
+    (c) => c.status === "approved"
+  );
+  const upcomingCampaigns = activeCampaigns.filter(
+    (c) => new Date(c.startDate) > new Date()
+  );
+  const currentCampaigns = activeCampaigns.filter(
+    (c) =>
+      new Date() >= new Date(c.startDate) && new Date() <= new Date(c.endDate)
+  );
+
+  // min datetime for start inputs - keep it fresh at each render
+  const minDateTime = format(new Date(), "yyyy-MM-dd'T'HH:mm");
+
+  if (isLoading) {
     return (
-      <div className="pt-24 min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading campaigns...</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-4 text-gray-600">Loading campaigns...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="pt-24">
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-          {/* Header Section */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Community <span className="text-green-600">Campaigns</span>
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Join local environmental initiatives and make a difference in your
-              community. Every action counts towards a sustainable future.
-            </p>
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-full hover:from-green-700 hover:to-green-800 transition-all duration-300 font-semibold flex items-center space-x-3 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-              >
-                <Users className="h-6 w-6" />
-                <span>Create Campaign</span>
-              </button>
-            </div>
-          </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl font-bold text-gray-900">
+          Environmental Campaigns
+        </h1>
+        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          Join local environmental initiatives or create your own. Together, we
+          can make a bigger impact!
+        </p>
+      </div>
 
-          {/* Stats Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-green-100">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Target className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {campaigns.length}
-              </h3>
-              <p className="text-gray-600">Active Campaigns</p>
-            </div>
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-blue-100">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {campaigns.reduce(
-                  (sum, campaign) => sum + campaign.participants,
-                  0
-                )}
-              </h3>
-              <p className="text-gray-600">Total Participants</p>
-            </div>
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-purple-100">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {campaigns.reduce(
-                  (sum, campaign) => sum + campaign.ecoPoints,
-                  0
-                )}
-              </h3>
-              <p className="text-gray-600">Total EcoPoints</p>
-            </div>
-          </div>
+      {/* Search and Create */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search campaigns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
-          {/* Create Campaign Form */}
-          {showCreateForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      Create New Campaign
-                    </h3>
-                    <button
-                      onClick={() => setShowCreateForm(false)}
-                      className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <X className="h-6 w-6" />
-                    </button>
+        {isAuthenticated && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Campaign
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Create New Campaign</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Campaign Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={newCampaign.title}
+                    onChange={handleInputChange}
+                    placeholder="Beach Cleanup Drive"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={newCampaign.description}
+                    onChange={handleInputChange}
+                    placeholder="Join us for a community beach cleanup..."
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    value={newCampaign.location}
+                    onChange={handleInputChange}
+                    placeholder="Santa Monica Beach, CA"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      name="startDate"
+                      type="datetime-local"
+                      value={newCampaign.startDate}
+                      onChange={handleInputChange}
+                      required
+                      min={minDateTime}
+                    />
                   </div>
 
-                  <div className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Campaign Title *
-                        </label>
-                        <input
-                          type="text"
-                          name="title"
-                          value={newCampaign.title}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                          placeholder="Enter campaign title"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Category *
-                        </label>
-                        <select
-                          name="category"
-                          value={newCampaign.category}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                        >
-                          <option value="Education">Education</option>
-                          <option value="Water Conservation">
-                            Water Conservation
-                          </option>
-                          <option value="Plastic Reduction">
-                            Plastic Reduction
-                          </option>
-                          <option value="Tree Plantation">
-                            Tree Plantation
-                          </option>
-                          <option value="Waste Management">
-                            Waste Management
-                          </option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Location *
-                        </label>
-                        <input
-                          type="text"
-                          name="location"
-                          value={newCampaign.location}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                          placeholder="Event location"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Date *
-                        </label>
-                        <input
-                          type="date"
-                          name="date"
-                          value={newCampaign.date}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Expected Participants
-                      </label>
-                      <input
-                        type="number"
-                        name="expectedParticipants"
-                        value={newCampaign.expectedParticipants}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                        placeholder="Expected number of participants"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Description *
-                      </label>
-                      <textarea
-                        rows="4"
-                        name="description"
-                        value={newCampaign.description}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
-                        placeholder="Describe your campaign goals and activities in detail"
-                      ></textarea>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end mt-8 space-x-4">
-                    <button
-                      onClick={() => setShowCreateForm(false)}
-                      className="px-6 py-3 text-gray-600 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleCreateCampaign}
-                      className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg"
-                    >
-                      Create Campaign
-                    </button>
+                  <div>
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      name="endDate"
+                      type="datetime-local"
+                      value={newCampaign.endDate}
+                      onChange={handleInputChange}
+                      required
+                      // end date should not be before start; if start is set, use that as min, otherwise use now
+                      min={
+                        newCampaign.startDate
+                          ? format(new Date(newCampaign.startDate), "yyyy-MM-dd'T'HH:mm")
+                          : minDateTime
+                      }
+                    />
                   </div>
                 </div>
-              </div>
+
+                <Button
+                  type="submit"
+                  disabled={createMutation.isLoading}
+                  className="w-full"
+                >
+                  {createMutation.isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Campaign"
+                  )}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Calendar className="h-8 w-8 text-primary mx-auto mb-2" />
+            <div className="text-2xl font-bold text-gray-900">
+              {currentCampaigns.length}
+            </div>
+            <div className="text-sm text-gray-600">Active Campaigns</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Users className="h-8 w-8 text-secondary mx-auto mb-2" />
+            <div className="text-2xl font-bold text-secondary">
+              {activeCampaigns.reduce(
+                (sum, c) => sum + c.participantCount,
+                0
+              ) ?? 0}
+            </div>
+            <div className="text-sm text-gray-600">Total Participants</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center">
+            <MapPin className="h-8 w-8 text-accent mx-auto mb-2" />
+            <div className="text-2xl font-bold text-accent">
+              {upcomingCampaigns.length}
+            </div>
+            <div className="text-sm text-gray-600">Upcoming Events</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Campaigns Tabs */}
+      <Tabs defaultValue="active" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+          <TabsTrigger value="active">Active Now</TabsTrigger>
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="space-y-6">
+          {currentCampaigns.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Active Campaigns
+                </h3>
+                <p className="text-gray-600">
+                  Check back later or create your own campaign!
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {currentCampaigns.map((campaign) => (
+                <CampaignCard
+                  key={campaign._id}
+                  campaign={campaign}
+                  user={user}
+                />
+              ))}
             </div>
           )}
+        </TabsContent>
 
-          {/* Campaigns Grid */}
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {campaigns.map((campaign) => (
-              <div
-                key={campaign.id}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
-              >
-                {/* Campaign Image */}
-                <div className="h-48 bg-gradient-to-br from-green-400 to-blue-500 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-                  <div className="absolute top-4 left-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        campaign.status
-                      )}`}
-                    >
-                      {campaign.status.charAt(0).toUpperCase() +
-                        campaign.status.slice(1)}
-                    </span>
-                  </div>
-                  <div className="absolute top-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <span className="text-sm font-semibold text-gray-800">
-                      {getCategoryIcon(campaign.category)}
-                    </span>
-                  </div>
-                </div>
+        <TabsContent value="upcoming" className="space-y-6">
+          {upcomingCampaigns.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Upcoming Campaigns
+                </h3>
+                <p className="text-gray-600">
+                  Be the first to create an upcoming campaign!
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingCampaigns.map((campaign) => (
+                <CampaignCard
+                  key={campaign._id}
+                  campaign={campaign}
+                  user={user}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors line-clamp-2">
-                      {campaign.title}
-                    </h3>
-                  </div>
-
-                  <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-3">
-                    {campaign.description}
-                  </p>
-
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 mr-2 text-green-600" />
-                      <span>{campaign.location}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-4 w-4 mr-2 text-green-600" />
-                      <span>{formatDate(campaign.date)}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <User className="h-4 w-4 mr-2 text-green-600" />
-                      <span>by {campaign.organizer}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-gray-900">
-                          {campaign.participants}
-                        </p>
-                        <p className="text-xs text-gray-500">Participants</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-green-600">
-                          {campaign.ecoPoints}
-                        </p>
-                        <p className="text-xs text-gray-500">EcoPoints</p>
-                      </div>
-                    </div>
-                    <button className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold flex items-center space-x-2 shadow-md">
-                      <span>Join</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Load More Button */}
-          <div className="text-center mt-12">
-            <button className="bg-white text-green-600 border-2 border-green-600 px-8 py-3 rounded-full hover:bg-green-600 hover:text-white transition-all duration-300 font-semibold shadow-lg">
-              Load More Campaigns
-            </button>
-          </div>
-        </div>
-      </div>
+      {!isAuthenticated && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="text-center py-8">
+            <Users className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Join the Community
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Sign up to create campaigns, join initiatives, and earn eco
+              points!
+            </p>
+            <Button className="bg-primary hover:bg-primary/90">
+              Get Started
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

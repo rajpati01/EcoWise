@@ -1,123 +1,110 @@
-
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Leaf, Instagram, Twitter, Facebook, Youtube, Mail, MapPin, Phone } from 'lucide-react';
+import { Link } from 'wouter';
+import { Leaf, Twitter, Facebook, Instagram, Linkedin } from 'lucide-react';
 
 const Footer = () => {
+  const currentYear = new Date().getFullYear();
+
+  const footerSections = [
+    {
+      title: "Product",
+      links: [
+        { name: "Waste Classification", href: "/classify" },
+        { name: "Eco Points", href: "/leaderboard" },
+        { name: "Leaderboard", href: "/leaderboard" },
+        { name: "Campaigns", href: "/campaigns" },
+        { name: "Blog", href: "/blog" },
+      ]
+    },
+    {
+      title: "Company",
+      links: [
+        { name: "About Us", href: "/about" },
+        { name: "Careers", href: "/careers" },
+        { name: "Press", href: "/press" },
+        { name: "Contact", href: "/contact" },
+        { name: "Help Center", href: "/help" },
+      ]
+    },
+    {
+      title: "Legal",
+      links: [
+        { name: "Privacy Policy", href: "/privacy" },
+        { name: "Terms of Service", href: "/terms" },
+        { name: "Cookie Policy", href: "/cookies" },
+        { name: "GDPR", href: "/gdpr" },
+      ]
+    }
+  ];
+
+  const socialLinks = [
+    { name: "Twitter", icon: Twitter, href: "#" },
+    { name: "Facebook", icon: Facebook, href: "#" },
+    { name: "Instagram", icon: Instagram, href: "#" },
+    { name: "LinkedIn", icon: Linkedin, href: "#" },
+  ];
+
   return (
-    <footer className="bg-gray-900 text-gray-300">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company Info */}
-          <div>
-            <div className="flex items-center space-x-2 mb-6">
-              <Leaf className="h-8 w-8 text-primary-500" />
-              <span className="text-2xl font-display font-bold text-white">EcoWise</span>
+    <footer className="bg-gray-900 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Brand Section */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Leaf className="h-8 w-8 text-primary" />
+              <span className="text-xl font-bold">EcoWise</span>
             </div>
-            <p className="mb-6">
-              Promoting sustainable waste management through education, technology, and community action.
+            <p className="text-gray-400 max-w-xs leading-relaxed">
+              Empowering communities to make sustainable choices through AI-powered 
+              waste management and gamified environmental action.
             </p>
             <div className="flex space-x-4">
-              <a 
-                href="#" 
-                className="text-gray-400 hover:text-primary-500 transition-colors"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a 
-                href="#" 
-                className="text-gray-400 hover:text-primary-500 transition-colors"
-                aria-label="Twitter"
-              >
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a 
-                href="#" 
-                className="text-gray-400 hover:text-primary-500 transition-colors"
-                aria-label="Facebook"
-              >
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a 
-                href="#" 
-                className="text-gray-400 hover:text-primary-500 transition-colors"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-5 w-5" />
-              </a>
+              {socialLinks.map((social) => {
+                const IconComponent = social.icon;
+                return (
+                  <a
+                    key={social.name}
+                    href={social.href}
+                    className="text-gray-400 hover:text-primary transition-colors duration-200"
+                    aria-label={social.name}
+                  >
+                    <IconComponent className="h-5 w-5" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-white font-display font-semibold text-lg mb-6">Quick Links</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/" className="hover:text-primary-500 transition-colors">Home</Link>
-              </li>
-              <li>
-                <Link to="/about" className="hover:text-primary-500 transition-colors">About Us</Link>
-              </li>
-              <li>
-                <Link to="/classify" className="hover:text-primary-500 transition-colors">Waste Classification</Link>
-              </li>
-              <li>
-                <Link to="/campaigns" className="hover:text-primary-500 transition-colors">Campaigns</Link>
-              </li>
-              <li>
-                <Link to="/blogs" className="hover:text-primary-500 transition-colors">Blog</Link>
-              </li>
-              <li>
-                <Link to="/contact" className="hover:text-primary-500 transition-colors">Contact Us</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Services */}
-          <div>
-            <h3 className="text-white font-display font-semibold text-lg mb-6">Our Services</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/classify" className="hover:text-primary-500 transition-colors">AI Waste Classification</Link>
-              </li>
-              <li>
-                <Link to="/ecopoints" className="hover:text-primary-500 transition-colors">EcoPoints Rewards</Link>
-              </li>
-              <li>
-                <Link to="/leaderboard" className="hover:text-primary-500 transition-colors">Community Leaderboard</Link>
-              </li>
-              <li>
-                <Link to="/disposal-centers" className="hover:text-primary-500 transition-colors">Disposal Centers</Link>
-              </li>
-              <li>
-                <Link to="/educational-resources" className="hover:text-primary-500 transition-colors">Educational Resources</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-white font-display font-semibold text-lg mb-6">Contact Us</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start space-x-3">
-                <MapPin className="h-5 w-5 text-primary-500 mt-0.5" />
-                <span>123 Green Street, Kathmandu, Nepal</span>
-              </li>
-              <li className="flex items-center space-x-3">
-                <Phone className="h-5 w-5 text-primary-500" />
-                <span>+977 9706853211</span>
-              </li>
-              <li className="flex items-center space-x-3">
-                <Mail className="h-5 w-5 text-primary-500" />
-                <span>contact@ecowise.com</span>
-              </li>
-            </ul>
-          </div>
+          {/* Footer Links */}
+          {footerSections.map((section) => (
+            <div key={section.title}>
+              <h4 className="font-semibold mb-4 text-white">{section.title}</h4>
+              <ul className="space-y-2">
+                {section.links.map((link) => (
+                  <li key={link.name}>
+                    <Link href={link.href}>
+                      <span className="text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">
+                        {link.name}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        <div className="border-t border-gray-800 mt-12 pt-8 text-center">
-          <p>&copy; {new Date().getFullYear()} EcoWise. All rights reserved.</p>
+        {/* Bottom Section */}
+        <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-400 text-sm">
+            © {currentYear} EcoWise. All rights reserved.
+          </p>
+          <div className="flex items-center space-x-6 mt-4 md:mt-0">
+            <span className="text-sm text-gray-400 flex items-center">
+              Made with 
+              <span className="text-green-500 mx-1">💚</span> 
+              for the planet
+            </span>
+          </div>
         </div>
       </div>
     </footer>
