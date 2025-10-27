@@ -25,3 +25,14 @@ dist-ssr
 
 # environment variables
 .env
+
+# Ignore split datasets
+data_set/
+data_split/
+
+uploads/
+
+
+__pycache__/
+*.py[cod]
+__pycache__/
