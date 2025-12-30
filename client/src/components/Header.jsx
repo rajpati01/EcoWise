@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "../hooks/useAuth";
-import { Button } from "../components/ui/button";
-import NotificationBell from "./NotificationBell";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,9 +11,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
   DropdownMenuLabel,
-} from "../components/ui/dropdown-menu";
-import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { getUserLevel, getUserInitial } from "@/utils/userHelpers";
 import {
   Leaf,
   Menu,
@@ -29,62 +30,31 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+const NAV_ITEMS = [
+  { name: "Home", href: "/" },
+  { name: "Classify Waste", href: "/classify" },
+  { name: "Campaigns", href: "/campaigns" },
+  { name: "Blog", href: "/blog" },
+  { name: "Leaderboard", href: "/leaderboard" },
+];
+
+const ADMIN_ITEMS = [{ name: "Admin", href: "/admin" }];
+
+const MANAGE_ITEMS = [
+  { name: "Users", href: "/admin/users", icon: <Users className="h-4 w-4 mr-2" /> },
+  { name: "Blogs", href: "/admin/blogs", icon: <BookOpen className="h-4 w-4 mr-2" /> },
+  { name: "Campaigns", href: "/admin/campaigns", icon: <Tent className="h-4 w-4 mr-2" /> },
+  { name: "Disposal Requests", href: "/admin/requests", icon: <Recycle className="h-4 w-4 mr-2" /> },
+  { name: "Analytics", href: "/admin/analytics", icon: <BarChart className="h-4 w-4 mr-2" /> },
+];
+
 const Header = () => {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  function getUserLevel(points) {
-    if (points >= 1000) return "Eco Master";
-    if (points >= 500) return "Eco Champion";
-    if (points >= 200) return "Eco Warrior";
-    if (points >= 50) return "Eco Explorer";
-    return "Beginner";
-  }
-
-  const navigationItems = [
-    { name: "Home", href: "/" },
-    { name: "Classify Waste", href: "/classify" },
-    { name: "Campaigns", href: "/campaigns" },
-    { name: "Blog", href: "/blog" },
-    { name: "Leaderboard", href: "/leaderboard" },
-  ];
-
-  // Admin navigation items
-  const adminItems = [{ name: "Admin", href: "/admin" }];
-
-  // Manage dropdown items for admin
-  const manageItems = [
-    {
-      name: "Users",
-      href: "/admin/users",
-      icon: <Users className="h-4 w-4 mr-2" />,
-    },
-    {
-      name: "Blogs",
-      href: "/admin/blogs",
-      icon: <BookOpen className="h-4 w-4 mr-2" />,
-    },
-    {
-      name: "Campaigns",
-      href: "/admin/campaigns",
-      icon: <Tent className="h-4 w-4 mr-2" />,
-    },
-    {
-      name: "Disposal Requests",
-      href: "/admin/requests",
-      icon: <Recycle className="h-4 w-4 mr-2" />,
-    },
-    {
-      name: "Analytics",
-      href: "/admin/analytics",
-      icon: <BarChart className="h-4 w-4 mr-2" />,
-    },
-  ];
-
   const isActive = (href) => location === href;
-  const isManageActive = () =>
-    manageItems.some((item) => location === item.href);
+  const isManageActive = () => MANAGE_ITEMS.some((item) => location === item.href);
 
   const handleLogout = () => {
     logout();
@@ -94,11 +64,15 @@ const Header = () => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        role="navigation"
+        aria-label="Main"
+      >
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center space-x-2 cursor-pointer">
+            <div className="flex items-center space-x-2 cursor-pointer" aria-label="EcoWise home">
               <Leaf className="h-8 w-8 text-primary" />
               <span className="text-xl font-bold text-gray-900">EcoWise</span>
             </div>
@@ -106,14 +80,13 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navigationItems.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <Link key={item.name} href={item.href}>
                 <span
                   className={`font-medium transition-colors cursor-pointer ${
-                    isActive(item.href)
-                      ? "text-primary"
-                      : "text-gray-700 hover:text-primary"
+                    isActive(item.href) ? "text-primary" : "text-gray-700 hover:text-primary"
                   }`}
+                  aria-current={isActive(item.href) ? "page" : undefined}
                 >
                   {item.name}
                 </span>
@@ -123,14 +96,13 @@ const Header = () => {
             {/* Admin Items */}
             {user?.role === "admin" && (
               <>
-                {adminItems.map((item) => (
+                {ADMIN_ITEMS.map((item) => (
                   <Link key={item.name} href={item.href}>
                     <span
                       className={`font-medium transition-colors cursor-pointer ${
-                        isActive(item.href)
-                          ? "text-primary"
-                          : "text-gray-700 hover:text-primary"
+                        isActive(item.href) ? "text-primary" : "text-gray-700 hover:text-primary"
                       }`}
+                      aria-current={isActive(item.href) ? "page" : undefined}
                     >
                       {item.name}
                     </span>
@@ -140,27 +112,25 @@ const Header = () => {
                 {/* Manage Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <div
-                      className={`flex items-center space-x-1 font-medium cursor-pointer ${
-                        isManageActive()
-                          ? "text-primary"
-                          : "text-gray-700 hover:text-primary"
+                    <Button
+                      variant="ghost"
+                      className={`h-8 px-2 py-1 flex items-center space-x-1 font-medium hover:bg-transparent${
+                        isManageActive() ? "text-primary hover:text-primary" : "text-gray-700 hover:text-primary"
                       }`}
+                      aria-haspopup="menu"
+                      aria-expanded={isManageActive()}
                     >
                       <span>Manage</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
+                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Manage Content</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
-                      {manageItems.map((item) => (
+                      {MANAGE_ITEMS.map((item) => (
                         <DropdownMenuItem key={item.name} asChild>
-                          <Link
-                            href={item.href}
-                            className="w-full flex items-center"
-                          >
+                          <Link href={item.href} className="w-full flex items-center">
                             {item.icon}
                             {item.name}
                           </Link>
@@ -177,29 +147,26 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-3">
-                {/* Eco Points Display */}
+                {/* Notifications */}
                 <NotificationBell />
-                <div className="flex items-center space-x-1 bg-amber-50 px-3 py-1 rounded-full">
-                  <Award className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-700">
-                    {user?.ecoPoints || 0}
-                  </span>
+                {/* Eco Points */}
+                <div className="flex items-center space-x-1 bg-amber-50 px-3 py-1 rounded-full" aria-label="Eco points">
+                  <Award className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                  <span className="text-sm font-medium text-amber-700">{user?.ecoPoints || 0}</span>
                 </div>
 
                 {/* User Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="relative h-10 w-10 rounded-full"
-                    >
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full" aria-label="Open user menu">
                       <Avatar className="h-10 w-10">
                         <AvatarImage
                           src={user?.profileImage}
                           alt={user?.username}
+                          loading="lazy"
                         />
                         <AvatarFallback>
-                          {user?.username?.charAt(0).toUpperCase() || "U"}
+                          {getUserInitial(user?.username)}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
@@ -208,11 +175,9 @@ const Header = () => {
                     <div className="flex items-center justify-start gap-2 p-2">
                       <div className="flex flex-col space-y-1 leading-none">
                         <p className="font-medium">{user?.username}</p>
-                        <p className="w-[200px] truncate text-sm text-muted-foreground">
-                          {user?.email}
-                        </p>
+                        <p className="w-[200px] truncate text-sm text-muted-foreground">{user?.email}</p>
                         <p className="text-xs text-primary font-medium">
-                          Level: {getUserLevel(user?.ecoPoints || 0)}
+                          Level: {getUserLevel(user?.ecoPoints)}
                         </p>
                       </div>
                     </div>
@@ -242,37 +207,34 @@ const Header = () => {
             ) : (
               <div className="flex items-center space-x-3">
                 <Link href="/login">
-                  <Button
-                    variant="outline"
-                    className="text-primary border-primary hover:bg-primary hover:text-white"
-                  >
+                  <Button variant="outline" className="text-primary border-primary hover:bg-primary hover:text-white">
                     Login
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="bg-primary hover:bg-primary/90">
-                    Sign Up
-                  </Button>
+                  <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button and sheet */}
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-               { isAuthenticated &&(<NotificationBell className="mb-4" />) }
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Open menu">
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-80">
+              <SheetContent side="right" className="w-80" aria-label="Mobile menu">
                 <div className="flex flex-col space-y-4 mt-6">
-                  {/* Logo */}
-                  <div className="flex items-center space-x-2 pb-4 border-b">
-                    <Leaf className="h-6 w-6 text-primary" />
-                    <span className="text-lg font-bold">EcoWise</span>
+                  {/* Logo + Notifications */}
+                  <div className="flex items-center justify-between pb-4 border-b">
+                    <div className="flex items-center space-x-2">
+                      <Leaf className="h-6 w-6 text-primary" />
+                      <span className="text-lg font-bold">EcoWise</span>
+                    </div>
+                    {isAuthenticated && <NotificationBell />}
                   </div>
 
                   {/* User Info (if authenticated) */}
@@ -283,9 +245,10 @@ const Header = () => {
                           <AvatarImage
                             src={user?.profileImage}
                             alt={user?.username}
+                            loading="lazy"
                           />
                           <AvatarFallback>
-                            {user?.username?.charAt(0).toUpperCase() || "U"}
+                            {getUserInitial(user?.username)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
@@ -294,10 +257,8 @@ const Header = () => {
                             {getUserLevel(user?.ecoPoints || 0)}
                           </p>
                           <div className="flex items-center space-x-1 mt-1">
-                            <Award className="h-3 w-3 text-amber-600" />
-                            <span className="text-xs text-amber-700">
-                              {user?.ecoPoints || 0} points
-                            </span>
+                            <Award className="h-3 w-3 text-amber-600" aria-hidden="true" />
+                            <span className="text-xs text-amber-700">{user?.ecoPoints || 0} points</span>
                           </div>
                         </div>
                       </div>
@@ -305,15 +266,14 @@ const Header = () => {
                   )}
 
                   {/* Navigation */}
-                  <nav className="space-y-2">
-                    {navigationItems.map((item) => (
+                  <nav className="space-y-2" aria-label="Mobile navigation">
+                    {NAV_ITEMS.map((item) => (
                       <Link key={item.name} href={item.href}>
                         <div
                           className={`block py-3 px-4 rounded-lg font-medium transition-colors cursor-pointer ${
-                            isActive(item.href)
-                              ? "bg-primary text-white"
-                              : "text-gray-700 hover:bg-gray-100"
+                            isActive(item.href) ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
                           }`}
+                          aria-current={isActive(item.href) ? "page" : undefined}
                           onClick={() => setMobileMenuOpen(false)}
                         >
                           {item.name}
@@ -324,14 +284,13 @@ const Header = () => {
                     {/* Admin Items */}
                     {user?.role === "admin" && (
                       <>
-                        {adminItems.map((item) => (
+                        {ADMIN_ITEMS.map((item) => (
                           <Link key={item.name} href={item.href}>
                             <div
                               className={`block py-3 px-4 rounded-lg font-medium transition-colors cursor-pointer ${
-                                isActive(item.href)
-                                  ? "bg-primary text-white"
-                                  : "text-gray-700 hover:bg-gray-100"
+                                isActive(item.href) ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
                               }`}
+                              aria-current={isActive(item.href) ? "page" : undefined}
                               onClick={() => setMobileMenuOpen(false)}
                             >
                               {item.name}
@@ -339,26 +298,19 @@ const Header = () => {
                           </Link>
                         ))}
 
-                        {/* Manage Section Header */}
-                        <div className="pt-1 pb-1 px-4 text-sm font-semibold text-gray-500">
-                          Manage
-                        </div>
+                        <div className="pt-1 pb-1 px-4 text-sm font-semibold text-gray-500">Manage</div>
 
-                        {/* Manage Items */}
-                        {manageItems.map((item) => (
+                        {MANAGE_ITEMS.map((item) => (
                           <Link key={item.name} href={item.href}>
                             <div
                               className={`flex items-center py-3 px-4 rounded-lg font-medium transition-colors cursor-pointer ${
-                                isActive(item.href)
-                                  ? "bg-primary text-white"
-                                  : "text-gray-700 hover:bg-gray-100"
+                                isActive(item.href) ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
                               }`}
                               onClick={() => setMobileMenuOpen(false)}
                             >
                               {React.cloneElement(item.icon, {
-                                className: `mr-2 h-4 w-4 ${
-                                  isActive(item.href) ? "text-white" : ""
-                                }`,
+                                className: `mr-2 h-4 w-4 ${isActive(item.href) ? "text-white" : ""}`,
+                                "aria-hidden": true,
                               })}
                               {item.name}
                             </div>
@@ -435,4 +387,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default memo(Header);
