@@ -7,8 +7,8 @@ import {
   TableHead, 
   TableHeader, 
   TableRow 
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+} from "../ui/table";
+import { Button } from "../ui/button";
 import { 
   MoreHorizontal, 
   Eye, 
@@ -21,9 +21,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+} from "../ui/dropdown-menu";
+import { Badge } from "../ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 const UserTable = ({ 
   users, 
@@ -128,7 +128,7 @@ const UserTable = ({
                     {(page - 1) * pageSize + index + 1}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{user.username || "User"}</div>
+                    <div className="font-medium">{user.username}</div>
                     {user.role === 'admin' && (
                       <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200">
                         Admin

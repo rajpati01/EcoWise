@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { useToast } from "../hooks/use-toast";
 import { Leaf, Key, ArrowLeft, Loader2 } from "lucide-react";
-import { apiRequest } from "@/utils/apiHelper";
+import { apiRequest } from "../utils/apiHelper";
 
 const VerifyCode = () => {
   const [code, setCode] = useState("");

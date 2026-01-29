@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth';
 import { useLocation } from 'wouter';
 import { useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Loader2, Lock } from 'lucide-react';
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
